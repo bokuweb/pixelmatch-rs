@@ -20,16 +20,16 @@ pub enum PixelmatchError {
 
 #[derive(Debug)]
 pub struct PixelmatchResult {
-    diff_count: usize,
-    diff_image: Vec<u8>,
+    pub diff_count: usize,
+    pub diff_image: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct PixelmatchOption {
-    include_anti_alias: bool,
-    threshold: f32,
-    diff_color: Rgba,
-    anti_aliased_color: Rgba,
+    pub include_anti_alias: bool,
+    pub threshold: f32,
+    pub diff_color: Rgba,
+    pub anti_aliased_color: Rgba,
 }
 
 impl Default for PixelmatchOption {
@@ -143,7 +143,7 @@ fn color_delta(img1: &[u8], img2: &[u8], pos1: usize, pos2: usize, only_brightne
 
 // blend semi-transparent color with white
 fn blend(c: u8, a: f32) -> u8 {
-    ((255.0 + (c as i32 - 255) as f32) * a) as u8
+    (255.0 + ((c as i32 - 255) as f32) * a) as u8
 }
 
 fn rgb2y(r: u8, g: u8, b: u8) -> f32 {
@@ -271,5 +271,3 @@ fn should_detect_1pixel_diff() {
         vec![255, 119, 119, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]
     );
 }
-
-
