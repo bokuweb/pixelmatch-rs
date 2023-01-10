@@ -1,21 +1,41 @@
-#[macro_use]
-extern crate failure;
-
-use std::cmp;
+use core::cmp;
 
 pub type Rgba = (u8, u8, u8, u8);
 pub type Rgb = (u8, u8, u8);
 
-static DEFAULT_DIFF_COLOR: Rgba = (255, 119, 119, 255);
-static DEFAULT_ANTI_ALIASED_COLOR: Rgba = (243, 156, 18, 255);
+pub static DEFAULT_DIFF_COLOR: Rgba = (255, 119, 119, 255);
+pub static DEFAULT_ANTI_ALIASED_COLOR: Rgba = (243, 156, 18, 255);
 
-#[derive(Debug, Fail)]
+#[derive(Debug)]
 pub enum PixelmatchError {
-    #[fail(display = "input buf length error. please input same length images.")]
     ImageLengthError,
-
-    #[fail(display = "input buf format error. please input RGBA 24bit image data")]
     InvalidFormatError,
+}
+
+impl std::fmt::Display for PixelmatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            PixelmatchError::ImageLengthError => {
+                f.write_str("input buf length error. please input same length images")
+            }
+            PixelmatchError::InvalidFormatError => {
+                f.write_str("input buf format error. please input RGBA 24bit image data")
+            }
+        }
+    }
+}
+
+impl std::error::Error for PixelmatchError {
+    fn description(&self) -> &str {
+        match *self {
+            PixelmatchError::ImageLengthError => {
+                "input buf length error. please input same length images"
+            }
+            PixelmatchError::InvalidFormatError => {
+                "input buf format error. please input RGBA 24bit image data"
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -56,11 +76,7 @@ pub fn pixelmatch(
         return Err(PixelmatchError::InvalidFormatError);
     }
 
-    let options = if options.is_some() {
-        options.expect("")
-    } else {
-        PixelmatchOption::default()
-    };
+    let options = options.unwrap_or_default();
 
     // maximum acceptable square distance between two colors;
     // 35215 is the maximum possible value for the YIQ difference metric
@@ -100,8 +116,8 @@ pub fn pixelmatch(
     })
 }
 
-fn draw_pixel(diff_buf: &mut Vec<u8>, pos: usize, rgba: Rgba) {
-    diff_buf[pos + 0] = rgba.0;
+fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: Rgba) {
+    diff_buf[pos] = rgba.0;
     diff_buf[pos + 1] = rgba.1;
     diff_buf[pos + 2] = rgba.2;
     diff_buf[pos + 3] = rgba.3;
@@ -109,7 +125,7 @@ fn draw_pixel(diff_buf: &mut Vec<u8>, pos: usize, rgba: Rgba) {
 
 fn gray_pixel(img: &[u8], pos: usize) -> u8 {
     let a = img[pos + 3] as f32 / 255.0;
-    let r = blend(img[pos + 0], a);
+    let r = blend(img[pos], a);
     let g = blend(img[pos + 1], a);
     let b = blend(img[pos + 2], a);
     rgb2y(r, g, b) as u8
@@ -121,11 +137,11 @@ fn color_delta(img1: &[u8], img2: &[u8], pos1: usize, pos2: usize, only_brightne
     let a1 = img1[pos1 + 3] as f32 / 255.0;
     let a2 = img2[pos2 + 3] as f32 / 255.0;
 
-    let r1 = blend(img1[pos1 + 0], a1);
+    let r1 = blend(img1[pos1], a1);
     let g1 = blend(img1[pos1 + 1], a1);
     let b1 = blend(img1[pos1 + 2], a1);
 
-    let r2 = blend(img2[pos2 + 0], a2);
+    let r2 = blend(img2[pos2], a2);
     let g2 = blend(img2[pos2 + 1], a2);
     let b2 = blend(img2[pos2 + 2], a2);
 
@@ -156,10 +172,9 @@ fn rgb2q(r: u8, g: u8, b: u8) -> f32 {
     r as f32 * 0.21147017 - g as f32 * 0.52261711 + b as f32 * 0.31114694
 }
 
-// check if a pixel is likely a part of anti-aliasing;
-// based on "Anti-aliased Pixel and Intensity Slope Detector" paper by V. Vysniauskas, 2009
-// http://eejournal.ktu.lt/index.php/elt/article/view/10058/5000
-
+/// check if a pixel is likely a part of anti-aliasing;
+/// based on "Anti-aliased Pixel and Intensity Slope Detector" paper by V. Vysniauskas, 2009
+/// http://eejournal.ktu.lt/index.php/elt/article/view/10058/5000
 fn anti_aliased(
     img1: &[u8],
     x1: usize,
