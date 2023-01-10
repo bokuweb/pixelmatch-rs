@@ -93,8 +93,8 @@ pub fn pixelmatch(
             if delta > max_delta {
                 // check it's a real rendering difference or just anti-aliasing
                 if options.include_anti_alias
-                    && (anti_aliased(img1, x as usize, y as usize, dimensions, Some(img2))
-                        || anti_aliased(img2, x as usize, y as usize, dimensions, Some(img1)))
+                    && (anti_aliased(img1, x as usize, y as usize, dimensions, img2)
+                        || anti_aliased(img2, x as usize, y as usize, dimensions, img1))
                 {
                     // one of the pixels is anti-aliasing; draw as yellow and do not count as difference
                     draw_pixel(&mut diff_image, pos, options.anti_aliased_color);
@@ -175,21 +175,20 @@ fn rgb2q(r: u8, g: u8, b: u8) -> f32 {
 /// check if a pixel is likely a part of anti-aliasing;
 /// based on "Anti-aliased Pixel and Intensity Slope Detector" paper by V. Vysniauskas, 2009
 /// http://eejournal.ktu.lt/index.php/elt/article/view/10058/5000
-fn anti_aliased(
-    img1: &[u8],
-    x1: usize,
-    y1: usize,
-    dimensions: (u32, u32),
-    img2: Option<&[u8]>,
-) -> bool {
-    let x0 = cmp::max(x1 as i32 - 1, 0);
-    let y0 = cmp::max(y1 as i32 - 1, 0);
-    let x2 = cmp::min(x1 as i32 + 1, dimensions.0 as i32 - 1);
-    let y2 = cmp::min(y1 as i32 + 1, dimensions.1 as i32 - 1);
+fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2: &[u8]) -> bool {
+    let x0 = cmp::max(x1 as i32 - 1, 0) as usize;
+    let y0 = cmp::max(y1 as i32 - 1, 0) as usize;
+
+    let x2 = cmp::min(x1 as i32 + 1, dimensions.0 as i32 - 1) as usize;
+    let y2 = cmp::min(y1 as i32 + 1, dimensions.1 as i32 - 1) as usize;
+
     let pos = (y1 * dimensions.0 as usize + x1) * 4;
-    let mut zeroes = 0;
-    let mut positives = 0;
-    let mut negatives = 0;
+    let mut zeroes = if x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 {
+        1
+    } else {
+        0
+    };
+
     let mut min = 0;
     let mut max = 0;
     let mut min_x = 0;
@@ -197,10 +196,12 @@ fn anti_aliased(
     let mut max_x = 0;
     let mut max_y = 0;
 
+    let (width, height) = dimensions;
+
     // go through 8 adjacent pixels
-    for x in x0..x2 + 1 {
-        for y in y0..y2 + 1 {
-            if x == x1 as i32 && y == y1 as i32 {
+    for x in x0..=x2 {
+        for y in y0..=y2 {
+            if x == x1 && y == y1 {
                 continue;
             }
 
@@ -209,36 +210,24 @@ fn anti_aliased(
                 img1,
                 img1,
                 pos,
-                ((y * dimensions.0 as i32 + x) * 4) as usize,
+                ((y * width as usize + x) * 4) as usize,
                 true,
             ) as i32;
 
             // count the number of equal, darker and brighter adjacent pixels
             if delta == 0 {
                 zeroes += 1;
-            } else if delta < 0 {
-                negatives += 1;
-            } else if delta > 0 {
-                positives += 1;
-            }
-
-            // if found more than 2 equal siblings, it's definitely not anti-aliasing
-            if zeroes > 2 {
-                return false;
-            }
-
-            if img2.is_none() {
-                continue;
-            }
-
-            // remember the darkest pixel
-            if delta < min {
+                // if found more than 2 equal siblings, it's definitely not anti-aliasing
+                if zeroes > 2 {
+                    return false;
+                }
+                // remember the darkest pixel
+            } else if delta < min {
                 min = delta;
                 min_x = x;
                 min_y = y;
-            }
-            // remember the brightest pixel
-            if delta > max {
+                // remember the brightest pixel
+            } else if delta > max {
                 max = delta;
                 max_x = x;
                 max_y = y;
@@ -246,33 +235,55 @@ fn anti_aliased(
         }
     }
 
-    if img2.is_none() {
-        return true;
-    }
-
     // if there are no both darker and brighter pixels among siblings, it's not anti-aliasing
-    if negatives == 0 || positives == 0 {
+    if min == 0 || max == 0 {
         return false;
     }
 
-    // if either the darkest or the brightest pixel has more than 2 equal siblings in both images
+    // if either the darkest or the brightest pixel has 3+ equal siblings in both images
     // (definitely not anti-aliased), this pixel is anti-aliased
-    (!anti_aliased(img1, min_x as usize, min_y as usize, dimensions, None)
-        && !anti_aliased(
-            img2.unwrap(),
-            min_x as usize,
-            min_y as usize,
-            dimensions,
-            None,
-        ))
-        || (!anti_aliased(img1, max_x as usize, max_y as usize, dimensions, None)
-            && !anti_aliased(
-                img2.unwrap(),
-                max_x as usize,
-                max_y as usize,
-                dimensions,
-                None,
-            ))
+    return (has_many_siblings(img1, min_x, min_y, width, height)
+        && has_many_siblings(img2, min_x, min_y, width, height))
+        || (has_many_siblings(img1, max_x, max_y, width, height)
+            && has_many_siblings(img2, max_x, max_y, width, height));
+}
+
+/// check if a pixel has 3+ adjacent pixels of the same color.
+fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) -> bool {
+    let x0 = cmp::max(x1 - 1, 0);
+    let y0 = cmp::max(y1 - 1, 0);
+    let x2 = cmp::min(x1 + 1, width as usize - 1);
+    let y2 = cmp::min(y1 + 1, height as usize - 1);
+    let pos = (y1 * width as usize + x1) * 4;
+    let mut zeroes = if x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 {
+        1
+    } else {
+        0
+    };
+
+    // go through 8 adjacent pixels
+    for x in x0..=x2 {
+        for y in y0..=y2 {
+            if x == x1 && y == y1 {
+                continue;
+            }
+
+            let pos2 = (y * width as usize + x) * 4;
+
+            if img[pos] == img[pos2]
+                && img[pos + 1] == img[pos2 + 1]
+                && img[pos + 2] == img[pos2 + 2]
+                && img[pos + 3] == img[pos2 + 3]
+            {
+                zeroes += 1;
+            }
+
+            if zeroes > 2 {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 #[test]
