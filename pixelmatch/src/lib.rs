@@ -294,6 +294,6 @@ fn should_detect_1pixel_diff() {
     assert_eq!(result.diff_count, 1);
     assert_eq!(
         result.diff_image,
-        vec![255, 119, 119, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]
+        vec![255, 119, 119, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]
     );
 }
