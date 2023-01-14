@@ -271,6 +271,13 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
     let y2 = cmp::min(y1 + 1, height as usize - 1);
     let pos = (y1 * width as usize + x1) * 4;
 
+    let rgba1 = f32x4(
+        img[pos] as f32,
+        img[pos + 1] as f32,
+        img[pos + 2] as f32,
+        img[pos + 3] as f32,
+    );
+
     let mut zeroes = if x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 {
         1
     } else {
@@ -285,14 +292,24 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
             }
 
             let pos2 = (y * width as usize + x) * 4;
+            let rgba2 = f32x4(
+                img[pos2] as f32,
+                img[pos2 + 1] as f32,
+                img[pos2 + 2] as f32,
+                img[pos2 + 3] as f32,
+            );
 
-            if img[pos] == img[pos2]
-                && img[pos + 1] == img[pos2 + 1]
-                && img[pos + 2] == img[pos2 + 2]
-                && img[pos + 3] == img[pos2 + 3]
-            {
+            if v128_any_true(f32x4_eq(rgba1, rgba2)) {
                 zeroes += 1;
             }
+
+            // if img[pos] == img[pos2]
+            //     && img[pos + 1] == img[pos2 + 1]
+            //     && img[pos + 2] == img[pos2 + 2]
+            //     && img[pos + 3] == img[pos2 + 3]
+            // {
+            //     zeroes += 1;
+            // }
 
             if zeroes > 2 {
                 return true;
@@ -307,4 +324,25 @@ fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: Rgba) {
     diff_buf[pos + 1] = rgba.1;
     diff_buf[pos + 2] = rgba.2;
     diff_buf[pos + 3] = rgba.3;
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    #[wasm_bindgen_test]
+    fn should_detect_1pixel_diff() {
+        let img1: [u8; 16] = [255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let img2: [u8; 16] = [0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let mut out: [u8; 16] = [0; 16];
+
+        let result = pixelmatch(&img1, &img2, &mut out, 2, 2, None).unwrap();
+        assert_eq!(result, 1);
+        assert_eq!(
+            out,
+            [255, 119, 119, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]
+        );
+        assert!(true);
+    }
 }

@@ -11,3 +11,6 @@ crate-type = ["cdylib"]
 [dependencies]
 pixelmatch_shared = { path = "../pixelmatch-shared" }
 wasm-bindgen = "0.2.83"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.33"
