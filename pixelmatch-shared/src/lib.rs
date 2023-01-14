@@ -42,17 +42,6 @@ pub struct PixelmatchOutput {
     pub diff_image: Vec<u8>,
 }
 
-impl Default for PixelmatchOption {
-    fn default() -> Self {
-        Self {
-            include_anti_alias: false,
-            threshold: 0.1,
-            diff_color: DEFAULT_DIFF_COLOR,
-            anti_aliased_color: DEFAULT_ANTI_ALIASED_COLOR,
-        }
-    }
-}
-
 pub fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: Rgba) {
     diff_buf[pos] = rgba.0;
     diff_buf[pos + 1] = rgba.1;
@@ -60,10 +49,3 @@ pub fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: Rgba) {
     diff_buf[pos + 3] = rgba.3;
 }
 
-#[derive(Debug)]
-pub struct PixelmatchOption {
-    pub include_anti_alias: bool,
-    pub threshold: f32,
-    pub diff_color: Rgba,
-    pub anti_aliased_color: Rgba,
-}

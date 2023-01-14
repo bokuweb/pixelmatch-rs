@@ -2,10 +2,9 @@
 
 use core::arch::wasm32::*;
 use core::cmp;
+use core::result::Result;
 
 use wasm_bindgen::prelude::*;
-
-use pixelmatch_shared::*;
 
 #[wasm_bindgen]
 extern "C" {
@@ -18,31 +17,55 @@ pub fn greet(name: &str) {
     let img2: [u8; 16] = [0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     let mut out: [u8; 16] = [0; 16];
 
-    let result = pixelmatch(&img1, &img2, &mut out, (2, 2), None).unwrap();
+    let result = pixelmatch(&img1, &img2, &mut out, 2, 2, None).unwrap();
     alert(result);
 }
 
+#[wasm_bindgen]
+#[derive(Copy, Clone)]
+pub struct Rgba(u8, u8, u8, u8);
+
+#[wasm_bindgen]
+pub struct PixelmatchOption {
+    pub include_anti_alias: bool,
+    pub threshold: f32,
+    pub diff_color: Rgba,
+    pub anti_aliased_color: Rgba,
+}
+
+impl Default for PixelmatchOption {
+    fn default() -> Self {
+        Self {
+            include_anti_alias: false,
+            threshold: 0.1,
+            diff_color: Rgba(255, 119, 119, 255),
+            anti_aliased_color: Rgba(243, 156, 18, 255),
+        }
+    }
+}
+
+pub enum PixelmatchError {
+    ImageLengthError = 0x00,
+    InvalidFormatError = 0x01,
+}
+
+#[wasm_bindgen(catch)]
 pub fn pixelmatch(
     img1: &[u8],
     img2: &[u8],
     out: &mut [u8],
-    dimensions: (u32, u32),
+    width: u32,
+    height: u32,
     options: Option<PixelmatchOption>,
-) -> Result<usize, ()> {
+) -> Result<usize, usize> {
     if img1.len() != img2.len() {
-        todo!();
-        // return Err(PixelmatchError::ImageLengthError);
+        return Err(PixelmatchError::ImageLengthError as usize);
     }
     if img1.len() % 4 != 0 {
-        todo!();
-        // return Err(PixelmatchError::InvalidFormatError);
+        return Err(PixelmatchError::InvalidFormatError as usize);
     }
 
-    let options = if options.is_some() {
-        options.expect("")
-    } else {
-        PixelmatchOption::default()
-    };
+    let options = options.unwrap_or_default();
 
     // maximum acceptable square distance between two colors;
     // 35215 is the maximum possible value for the YIQ difference metric
@@ -50,9 +73,9 @@ pub fn pixelmatch(
     let max_delta = 35215.0 * threshold * threshold;
     let mut diff_count = 0;
 
-    for y in 0..dimensions.1 {
-        for x in 0..dimensions.0 {
-            let pos = ((y * dimensions.0 + x) * 4) as usize;
+    for y in 0..height {
+        for x in 0..width {
+            let pos = ((y * width + x) * 4) as usize;
 
             let rgba1 = f32x4(
                 img1[pos] as f32,
@@ -73,8 +96,8 @@ pub fn pixelmatch(
             if delta > max_delta {
                 // check it's a real rendering difference or just anti-aliasing
                 if options.include_anti_alias
-                    && (anti_aliased(img1, x as usize, y as usize, dimensions, Some(img2))
-                        || anti_aliased(img2, x as usize, y as usize, dimensions, Some(img1)))
+                    && (anti_aliased(img1, x as usize, y as usize, (width, height), img2)
+                        || anti_aliased(img2, x as usize, y as usize, (width, height), img1))
                 {
                     // one of the pixels is anti-aliasing; draw as yellow and do not count as difference
                     draw_pixel(out, pos, options.anti_aliased_color);
@@ -87,7 +110,7 @@ pub fn pixelmatch(
                 let c = gray_pixel(rgba1);
                 // pixels are similar; draw background as grayscale image blended with white
                 let y = (255.0 + ((c as i32 - 255) as f32) * 0.1) as u8;
-                draw_pixel(out, pos, (y, y, y, 255));
+                draw_pixel(out, pos, Rgba(y, y, y, 255));
             }
         }
     }
@@ -158,21 +181,20 @@ fn rgb2y(px: v128) -> f32 {
 // check if a pixel is likely a part of anti-aliasing;
 // based on "Anti-aliased Pixel and Intensity Slope Detector" paper by V. Vysniauskas, 2009
 // http://eejournal.ktu.lt/index.php/elt/article/view/10058/5000
-fn anti_aliased(
-    img1: &[u8],
-    x1: usize,
-    y1: usize,
-    dimensions: (u32, u32),
-    img2: Option<&[u8]>,
-) -> bool {
-    let x0 = cmp::max(x1 as i32 - 1, 0);
-    let y0 = cmp::max(y1 as i32 - 1, 0);
-    let x2 = cmp::min(x1 as i32 + 1, dimensions.0 as i32 - 1);
-    let y2 = cmp::min(y1 as i32 + 1, dimensions.1 as i32 - 1);
+fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2: &[u8]) -> bool {
+    let x0 = cmp::max(x1 as i32 - 1, 0) as usize;
+    let y0 = cmp::max(y1 as i32 - 1, 0) as usize;
+
+    let x2 = cmp::min(x1 as i32 + 1, dimensions.0 as i32 - 1) as usize;
+    let y2 = cmp::min(y1 as i32 + 1, dimensions.1 as i32 - 1) as usize;
+
     let pos = (y1 * dimensions.0 as usize + x1) * 4;
-    let mut zeroes = 0;
-    let mut positives = 0;
-    let mut negatives = 0;
+    let mut zeroes = if x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 {
+        1
+    } else {
+        0
+    };
+
     let mut min = 0;
     let mut max = 0;
     let mut min_x = 0;
@@ -180,10 +202,12 @@ fn anti_aliased(
     let mut max_x = 0;
     let mut max_y = 0;
 
+    let (width, height) = dimensions;
+
     // go through 8 adjacent pixels
-    for x in x0..x2 + 1 {
-        for y in y0..y2 + 1 {
-            if x == x1 as i32 && y == y1 as i32 {
+    for x in x0..=x2 {
+        for y in y0..=y2 {
+            if x == x1 && y == y1 {
                 continue;
             }
 
@@ -194,7 +218,7 @@ fn anti_aliased(
                 img1[pos + 3] as f32,
             );
 
-            let pos2 = ((y * dimensions.0 as i32 + x) * 4) as usize;
+            let pos2 = ((y * width as usize + x) * 4) as usize;
             let rgba2 = f32x4(
                 img1[pos2] as f32,
                 img1[pos2 + 1] as f32,
@@ -208,25 +232,17 @@ fn anti_aliased(
             // count the number of equal, darker and brighter adjacent pixels
             if delta == 0 {
                 zeroes += 1;
-            } else if delta < 0 {
-                negatives += 1;
-            } else if delta > 0 {
-                positives += 1;
-            }
-
-            // if found more than 2 equal siblings, it's definitely not anti-aliasing
-            if zeroes > 2 {
-                return false;
-            }
-
-            // remember the darkest pixel
-            if delta < min {
+                // if found more than 2 equal siblings, it's definitely not anti-aliasing
+                if zeroes > 2 {
+                    return false;
+                }
+                // remember the darkest pixel
+            } else if delta < min {
                 min = delta;
                 min_x = x;
                 min_y = y;
-            }
-            // remember the brightest pixel
-            if delta > max {
+                // remember the brightest pixel
+            } else if delta > max {
                 max = delta;
                 max_x = x;
                 max_y = y;
@@ -234,31 +250,61 @@ fn anti_aliased(
         }
     }
 
-    if img2.is_none() {
-        return true;
-    }
-
     // if there are no both darker and brighter pixels among siblings, it's not anti-aliasing
-    if negatives == 0 || positives == 0 {
+    if min == 0 || max == 0 {
         return false;
     }
 
     // if either the darkest or the brightest pixel has more than 2 equal siblings in both images
     // (definitely not anti-aliased), this pixel is anti-aliased
-    (!anti_aliased(img1, min_x as usize, min_y as usize, dimensions, None)
-        && !anti_aliased(
-            img2.unwrap(),
-            min_x as usize,
-            min_y as usize,
-            dimensions,
-            None,
-        ))
-        || (!anti_aliased(img1, max_x as usize, max_y as usize, dimensions, None)
-            && !anti_aliased(
-                img2.unwrap(),
-                max_x as usize,
-                max_y as usize,
-                dimensions,
-                None,
-            ))
+    (has_many_siblings(img1, min_x, min_y, width, height)
+        && has_many_siblings(img2, min_x, min_y, width, height))
+        || (has_many_siblings(img1, max_x, max_y, width, height)
+            && has_many_siblings(img2, max_x, max_y, width, height))
+}
+
+/// check if a pixel has 3+ adjacent pixels of the same color.
+fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) -> bool {
+    let x0 = cmp::max(x1 - 1, 0);
+    let y0 = cmp::max(y1 - 1, 0);
+    let x2 = cmp::min(x1 + 1, width as usize - 1);
+    let y2 = cmp::min(y1 + 1, height as usize - 1);
+    let pos = (y1 * width as usize + x1) * 4;
+
+    let mut zeroes = if x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 {
+        1
+    } else {
+        0
+    };
+
+    // go through 8 adjacent pixels
+    for x in x0..=x2 {
+        for y in y0..=y2 {
+            if x == x1 && y == y1 {
+                continue;
+            }
+
+            let pos2 = (y * width as usize + x) * 4;
+
+            if img[pos] == img[pos2]
+                && img[pos + 1] == img[pos2 + 1]
+                && img[pos + 2] == img[pos2 + 2]
+                && img[pos + 3] == img[pos2 + 3]
+            {
+                zeroes += 1;
+            }
+
+            if zeroes > 2 {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: Rgba) {
+    diff_buf[pos] = rgba.0;
+    diff_buf[pos + 1] = rgba.1;
+    diff_buf[pos + 2] = rgba.2;
+    diff_buf[pos + 3] = rgba.3;
 }

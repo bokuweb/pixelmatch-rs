@@ -2,7 +2,26 @@ use core::cmp;
 
 use pixelmatch_shared::*;
 
-pub use pixelmatch_shared::{PixelmatchOption, PixelmatchOutput};
+pub use pixelmatch_shared::PixelmatchOutput;
+
+#[derive(Debug)]
+pub struct PixelmatchOption {
+    pub include_anti_alias: bool,
+    pub threshold: f32,
+    pub diff_color: Rgba,
+    pub anti_aliased_color: Rgba,
+}
+
+impl Default for PixelmatchOption {
+    fn default() -> Self {
+        Self {
+            include_anti_alias: false,
+            threshold: 0.1,
+            diff_color: DEFAULT_DIFF_COLOR,
+            anti_aliased_color: DEFAULT_ANTI_ALIASED_COLOR,
+        }
+    }
+}
 
 pub fn pixelmatch(
     img1: &[u8],
