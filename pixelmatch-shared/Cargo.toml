@@ -1,18 +1,12 @@
 [package]
-name = "pixelmatch-rs"
+name = "pixelmatch_shared"
 version = "0.1.0"
-authors = ["bokuweb <bokuweb12@gmail.com>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "pixelmatch"
+name = "pixelmatch_shared"
 path = "src/lib.rs"
 
 [dependencies]
-pixelmatch_shared = { path = "../pixelmatch-shared" }
-
-
-[dev-dependencies]
-image = "0.20"

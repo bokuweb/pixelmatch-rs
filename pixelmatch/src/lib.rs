@@ -1,74 +1,15 @@
 use core::cmp;
 
-pub type Rgba = (u8, u8, u8, u8);
-pub type Rgb = (u8, u8, u8);
+use pixelmatch_shared::*;
 
-pub static DEFAULT_DIFF_COLOR: Rgba = (255, 119, 119, 255);
-pub static DEFAULT_ANTI_ALIASED_COLOR: Rgba = (243, 156, 18, 255);
-
-#[derive(Debug)]
-pub enum PixelmatchError {
-    ImageLengthError,
-    InvalidFormatError,
-}
-
-impl std::fmt::Display for PixelmatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match *self {
-            PixelmatchError::ImageLengthError => {
-                f.write_str("input buf length error. please input same length images")
-            }
-            PixelmatchError::InvalidFormatError => {
-                f.write_str("input buf format error. please input RGBA 24bit image data")
-            }
-        }
-    }
-}
-
-impl std::error::Error for PixelmatchError {
-    fn description(&self) -> &str {
-        match *self {
-            PixelmatchError::ImageLengthError => {
-                "input buf length error. please input same length images"
-            }
-            PixelmatchError::InvalidFormatError => {
-                "input buf format error. please input RGBA 24bit image data"
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct PixelmatchResult {
-    pub diff_count: usize,
-    pub diff_image: Vec<u8>,
-}
-
-#[derive(Debug)]
-pub struct PixelmatchOption {
-    pub include_anti_alias: bool,
-    pub threshold: f32,
-    pub diff_color: Rgba,
-    pub anti_aliased_color: Rgba,
-}
-
-impl Default for PixelmatchOption {
-    fn default() -> Self {
-        Self {
-            include_anti_alias: false,
-            threshold: 0.1,
-            diff_color: DEFAULT_DIFF_COLOR,
-            anti_aliased_color: DEFAULT_ANTI_ALIASED_COLOR,
-        }
-    }
-}
+pub use pixelmatch_shared::{PixelmatchOption, PixelmatchOutput};
 
 pub fn pixelmatch(
     img1: &[u8],
     img2: &[u8],
     dimensions: (u32, u32),
     options: Option<PixelmatchOption>,
-) -> Result<PixelmatchResult, PixelmatchError> {
+) -> Result<PixelmatchOutput, PixelmatchError> {
     if img1.len() != img2.len() {
         return Err(PixelmatchError::ImageLengthError);
     }
@@ -110,7 +51,7 @@ pub fn pixelmatch(
             }
         }
     }
-    Ok(PixelmatchResult {
+    Ok(PixelmatchOutput {
         diff_count,
         diff_image,
     })
@@ -242,10 +183,10 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
 
     // if either the darkest or the brightest pixel has 3+ equal siblings in both images
     // (definitely not anti-aliased), this pixel is anti-aliased
-    return (has_many_siblings(img1, min_x, min_y, width, height)
+    (has_many_siblings(img1, min_x, min_y, width, height)
         && has_many_siblings(img2, min_x, min_y, width, height))
         || (has_many_siblings(img1, max_x, max_y, width, height)
-            && has_many_siblings(img2, max_x, max_y, width, height));
+            && has_many_siblings(img2, max_x, max_y, width, height))
 }
 
 /// check if a pixel has 3+ adjacent pixels of the same color.
@@ -255,6 +196,7 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
     let x2 = cmp::min(x1 + 1, width as usize - 1);
     let y2 = cmp::min(y1 + 1, height as usize - 1);
     let pos = (y1 * width as usize + x1) * 4;
+
     let mut zeroes = if x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 {
         1
     } else {

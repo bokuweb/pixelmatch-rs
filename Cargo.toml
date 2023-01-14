@@ -3,4 +3,6 @@
 members = [
     "pixelmatch",
     "pixelmatch-wasm",
+    "pixelmatch-simd-wasm",
+    "pixelmatch-shared",
 ]
