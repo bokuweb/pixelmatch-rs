@@ -1,15 +1,13 @@
 #![no_std]
 
-use core::arch::wasm32::{
-    f32x4, f32x4_add, f32x4_eq, f32x4_extract_lane, f32x4_mul, f32x4_sub, v128, v128_any_true,
-};
+use core::arch::wasm32::*;
 use core::cmp::{max, min};
 // use core::result::Result;
 
 #[panic_handler]
 #[cfg(not(test))]
 fn my_panic(_info: &core::panic::PanicInfo) -> ! {
-    loop {}
+    unreachable!();
 }
 
 #[derive(Copy, Clone)]
@@ -22,21 +20,19 @@ pub struct PixelmatchOption {
     pub anti_aliased_color: Rgba,
 }
 
-impl Default for PixelmatchOption {
-    fn default() -> Self {
-        Self {
-            include_anti_alias: false,
-            threshold: 0.1,
-            diff_color: Rgba(255, 119, 119, 255),
-            anti_aliased_color: Rgba(243, 156, 18, 255),
-        }
-    }
-}
-
-// pub enum PixelmatchError {
-//     ImageLengthError = 0x00,
-//     InvalidFormatError = 0x01,
+// impl Default for PixelmatchOption {
+//     fn default() -> Self {
+//         Self {
+//             include_anti_alias: false,
+//             threshold: 0.1,
+//             diff_color: Rgba(255, 119, 119, 255),
+//             anti_aliased_color: Rgba(243, 156, 18, 255),
+//         }
+//     }
 // }
+
+const IMAGE_LENGTH_ERROR: isize = -1;
+const INVALID_FORMAT_ERROR: isize = -2;
 
 #[no_mangle]
 pub fn pixelmatch(
@@ -45,20 +41,25 @@ pub fn pixelmatch(
     out: &mut [u8],
     width: u32,
     height: u32,
-    options: Option<PixelmatchOption>,
+    // options: Option<PixelmatchOption>,
 ) -> isize {
     if img1.len() != img2.len() {
-        return -1;
+        return IMAGE_LENGTH_ERROR;
     }
     if img1.len() % 4 != 0 {
-        return -2;
+        return INVALID_FORMAT_ERROR;
     }
 
-    let options = options.unwrap_or_default();
+    let include_anti_alias = false;
+    let threshold = 0.1;
+    let diff_color = Rgba(255, 119, 119, 255);
+    let anti_aliased_color = Rgba(243, 156, 18, 255);
+
+    // let options = options.unwrap_or_default();
 
     // maximum acceptable square distance between two colors;
     // 35215 is the maximum possible value for the YIQ difference metric
-    let threshold = options.threshold;
+    let threshold = threshold;
     let max_delta = 35215.0 * threshold * threshold;
     let mut diff_count = 0;
 
@@ -84,15 +85,15 @@ pub fn pixelmatch(
             let delta = color_delta(rgba1, rgba2, false);
             if delta > max_delta {
                 // check it's a real rendering difference or just anti-aliasing
-                if options.include_anti_alias
+                if include_anti_alias
                     && (anti_aliased(img1, x as usize, y as usize, (width, height), img2)
                         || anti_aliased(img2, x as usize, y as usize, (width, height), img1))
                 {
                     // one of the pixels is anti-aliasing; draw as yellow and do not count as difference
-                    draw_pixel(out, pos, options.anti_aliased_color);
+                    draw_pixel(out, pos, anti_aliased_color);
                 } else {
                     // found substantial difference not caused by anti-aliasing; draw it as red
-                    draw_pixel(out, pos, options.diff_color);
+                    draw_pixel(out, pos, diff_color);
                     diff_count += 1;
                 }
             } else {
@@ -326,7 +327,7 @@ mod test {
         let img2: [u8; 16] = [0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         let mut out: [u8; 16] = [0; 16];
 
-        let result = pixelmatch(&img1, &img2, &mut out, 2, 2, None);
+        let result = pixelmatch(&img1, &img2, &mut out, 2, 2);
         assert_eq!(result, 1);
         assert_eq!(
             out,
