@@ -1,31 +1,20 @@
 #![no_std]
 
-use core::arch::wasm32::*;
-use core::cmp;
-use core::result::Result;
+use core::arch::wasm32::{
+    f32x4, f32x4_add, f32x4_eq, f32x4_extract_lane, f32x4_mul, f32x4_sub, v128, v128_any_true,
+};
+use core::cmp::{max, min};
+// use core::result::Result;
 
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-extern "C" {
-    fn alert(s: usize);
+#[panic_handler]
+#[cfg(not(test))]
+fn my_panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
 }
 
-#[wasm_bindgen]
-pub fn greet(name: &str) {
-    let img1: [u8; 16] = [255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    let img2: [u8; 16] = [0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    let mut out: [u8; 16] = [0; 16];
-
-    let result = pixelmatch(&img1, &img2, &mut out, 2, 2, None).unwrap();
-    alert(result);
-}
-
-#[wasm_bindgen]
 #[derive(Copy, Clone)]
 pub struct Rgba(u8, u8, u8, u8);
 
-#[wasm_bindgen]
 pub struct PixelmatchOption {
     pub include_anti_alias: bool,
     pub threshold: f32,
@@ -44,12 +33,12 @@ impl Default for PixelmatchOption {
     }
 }
 
-pub enum PixelmatchError {
-    ImageLengthError = 0x00,
-    InvalidFormatError = 0x01,
-}
+// pub enum PixelmatchError {
+//     ImageLengthError = 0x00,
+//     InvalidFormatError = 0x01,
+// }
 
-#[wasm_bindgen(catch)]
+#[no_mangle]
 pub fn pixelmatch(
     img1: &[u8],
     img2: &[u8],
@@ -57,12 +46,12 @@ pub fn pixelmatch(
     width: u32,
     height: u32,
     options: Option<PixelmatchOption>,
-) -> Result<usize, usize> {
+) -> isize {
     if img1.len() != img2.len() {
-        return Err(PixelmatchError::ImageLengthError as usize);
+        return -1;
     }
     if img1.len() % 4 != 0 {
-        return Err(PixelmatchError::InvalidFormatError as usize);
+        return -2;
     }
 
     let options = options.unwrap_or_default();
@@ -114,7 +103,7 @@ pub fn pixelmatch(
             }
         }
     }
-    Ok(diff_count)
+    diff_count
 }
 
 fn gray_pixel(rgba: v128) -> u8 {
@@ -147,7 +136,7 @@ fn color_delta(rgba1: v128, rgba2: v128, only_brightness: bool) -> f32 {
 
 /// blend semi-transparent color with white
 fn blend(rgba: v128) -> v128 {
-    let a = (f32x4_extract_lane::<3>(rgba) / 255.0);
+    let a = f32x4_extract_lane::<3>(rgba) / 255.0;
     f32x4_add(
         f32x4_mul(
             f32x4_sub(rgba, f32x4(255.0, 255.0, 255.0, 0.0)),
@@ -182,11 +171,11 @@ fn rgb2y(px: v128) -> f32 {
 // based on "Anti-aliased Pixel and Intensity Slope Detector" paper by V. Vysniauskas, 2009
 // http://eejournal.ktu.lt/index.php/elt/article/view/10058/5000
 fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2: &[u8]) -> bool {
-    let x0 = cmp::max(x1 as i32 - 1, 0) as usize;
-    let y0 = cmp::max(y1 as i32 - 1, 0) as usize;
+    let x0 = max(x1 as i32 - 1, 0) as usize;
+    let y0 = max(y1 as i32 - 1, 0) as usize;
 
-    let x2 = cmp::min(x1 as i32 + 1, dimensions.0 as i32 - 1) as usize;
-    let y2 = cmp::min(y1 as i32 + 1, dimensions.1 as i32 - 1) as usize;
+    let x2 = min(x1 as i32 + 1, dimensions.0 as i32 - 1) as usize;
+    let y2 = min(y1 as i32 + 1, dimensions.1 as i32 - 1) as usize;
 
     let pos = (y1 * dimensions.0 as usize + x1) * 4;
     let mut zeroes = if x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 {
@@ -265,10 +254,10 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
 
 /// check if a pixel has 3+ adjacent pixels of the same color.
 fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) -> bool {
-    let x0 = cmp::max(x1 - 1, 0);
-    let y0 = cmp::max(y1 - 1, 0);
-    let x2 = cmp::min(x1 + 1, width as usize - 1);
-    let y2 = cmp::min(y1 + 1, height as usize - 1);
+    let x0 = max(x1 - 1, 0);
+    let y0 = max(y1 - 1, 0);
+    let x2 = min(x1 + 1, width as usize - 1);
+    let y2 = min(y1 + 1, height as usize - 1);
     let pos = (y1 * width as usize + x1) * 4;
 
     let rgba1 = f32x4(
@@ -337,7 +326,7 @@ mod test {
         let img2: [u8; 16] = [0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         let mut out: [u8; 16] = [0; 16];
 
-        let result = pixelmatch(&img1, &img2, &mut out, 2, 2, None).unwrap();
+        let result = pixelmatch(&img1, &img2, &mut out, 2, 2, None);
         assert_eq!(result, 1);
         assert_eq!(
             out,
