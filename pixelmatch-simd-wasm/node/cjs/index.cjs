@@ -11,14 +11,14 @@ const createDefaultOptions = () => {
   };
 };
 
-export class ImageLengthError extends Error {
+class ImageLengthError extends Error {
   constructor() {
     super("input buf length error. please input same length images");
     this.name = "ImageLengthError";
   }
 }
 
-export class InvalidFormatError extends Error {
+class InvalidFormatError extends Error {
   constructor() {
     super("input buf format error. please input RGBA 24bit image data");
     this.name = "InvalidFormatError";
@@ -59,4 +59,4 @@ const pixelmatch = (img1, img2, w, h, opts) => {
   return { count: countOrError, diff: out };
 };
 
-module.exports = { pixelmatch };
+module.exports = { pixelmatch, ImageLengthError, InvalidFormatError };
