@@ -1,8 +1,44 @@
 use core::cmp;
 
-use pixelmatch_shared::*;
+pub type Rgba = (u8, u8, u8, u8);
+pub type Rgb = (u8, u8, u8);
 
-pub use pixelmatch_shared::PixelmatchOutput;
+pub static DEFAULT_DIFF_COLOR: Rgba = (255, 119, 119, 255);
+pub static DEFAULT_ANTI_ALIASED_COLOR: Rgba = (243, 156, 18, 255);
+
+#[derive(Debug)]
+pub enum PixelmatchError {
+    ImageLengthError,
+    InvalidFormatError,
+}
+
+const IMAGE_LENGTH_ERROR_MESSAGE: &str = "input buf length error. please input same length images";
+const INVALID_FORMAT_ERROR_MESSAGE: &str =
+    "input buf format error. please input RGBA 24bit image data";
+
+impl std::fmt::Display for PixelmatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            PixelmatchError::ImageLengthError => f.write_str(IMAGE_LENGTH_ERROR_MESSAGE),
+            PixelmatchError::InvalidFormatError => f.write_str(INVALID_FORMAT_ERROR_MESSAGE),
+        }
+    }
+}
+
+impl std::error::Error for PixelmatchError {
+    fn description(&self) -> &str {
+        match *self {
+            PixelmatchError::ImageLengthError => IMAGE_LENGTH_ERROR_MESSAGE,
+            PixelmatchError::InvalidFormatError => INVALID_FORMAT_ERROR_MESSAGE,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PixelmatchOutput {
+    pub diff_count: usize,
+    pub diff_image: Vec<u8>,
+}
 
 #[derive(Debug)]
 pub struct PixelmatchOption {
@@ -123,13 +159,13 @@ fn blend(c: u8, a: f32) -> u8 {
 }
 
 fn rgb2y(r: u8, g: u8, b: u8) -> f32 {
-    r as f32 * 0.29889531 + g as f32 * 0.58662247 + b as f32 * 0.11448223
+    r as f32 * 0.298_895_3 + g as f32 * 0.586_622_4 + b as f32 * 0.114_482_23
 }
 fn rgb2i(r: u8, g: u8, b: u8) -> f32 {
-    r as f32 * 0.59597799 - g as f32 * 0.27417610 - b as f32 * 0.32180189
+    r as f32 * 0.595_977_99 - g as f32 * 0.274_176_1 - b as f32 * 0.321_801_8
 }
 fn rgb2q(r: u8, g: u8, b: u8) -> f32 {
-    r as f32 * 0.21147017 - g as f32 * 0.52261711 + b as f32 * 0.31114694
+    r as f32 * 0.211_470_17 - g as f32 * 0.522_617_1 + b as f32 * 0.311_146_9
 }
 
 /// check if a pixel is likely a part of anti-aliasing;

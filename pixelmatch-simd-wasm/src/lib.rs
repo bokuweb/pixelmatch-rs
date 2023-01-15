@@ -1,47 +1,38 @@
 #![no_std]
-
 use core::arch::wasm32::*;
 use core::cmp::{max, min};
-// use core::result::Result;
+use wasm_bindgen::prelude::*;
 
-#[panic_handler]
-#[cfg(not(test))]
-fn my_panic(_info: &core::panic::PanicInfo) -> ! {
-    unreachable!();
-}
-
-#[derive(Copy, Clone)]
-pub struct Rgba(u8, u8, u8, u8);
-
-pub struct PixelmatchOption {
+struct PixelmatchOption {
     pub include_anti_alias: bool,
     pub threshold: f32,
     pub diff_color: Rgba,
     pub anti_aliased_color: Rgba,
 }
 
-// impl Default for PixelmatchOption {
-//     fn default() -> Self {
-//         Self {
-//             include_anti_alias: false,
-//             threshold: 0.1,
-//             diff_color: Rgba(255, 119, 119, 255),
-//             anti_aliased_color: Rgba(243, 156, 18, 255),
-//         }
-//     }
-// }
+#[derive(Copy, Clone)]
+pub struct Rgba(u8, u8, u8, u8);
 
 const IMAGE_LENGTH_ERROR: isize = -1;
 const INVALID_FORMAT_ERROR: isize = -2;
 
-#[no_mangle]
+#[wasm_bindgen]
 pub fn pixelmatch(
     img1: &[u8],
     img2: &[u8],
     out: &mut [u8],
     width: u32,
     height: u32,
-    // options: Option<PixelmatchOption>,
+    include_anti_alias: bool,
+    threshold: f32,
+    diff_color_r: u8,
+    diff_color_g: u8,
+    diff_color_b: u8,
+    diff_color_a: u8,
+    anti_aliased_color_r: u8,
+    anti_aliased_color_g: u8,
+    anti_aliased_color_b: u8,
+    anti_aliased_color_a: u8,
 ) -> isize {
     if img1.len() != img2.len() {
         return IMAGE_LENGTH_ERROR;
@@ -50,16 +41,21 @@ pub fn pixelmatch(
         return INVALID_FORMAT_ERROR;
     }
 
-    let include_anti_alias = false;
-    let threshold = 0.1;
-    let diff_color = Rgba(255, 119, 119, 255);
-    let anti_aliased_color = Rgba(243, 156, 18, 255);
-
-    // let options = options.unwrap_or_default();
+    let options = PixelmatchOption {
+        include_anti_alias,
+        threshold,
+        diff_color: Rgba(diff_color_r, diff_color_g, diff_color_b, diff_color_a),
+        anti_aliased_color: Rgba(
+            anti_aliased_color_r,
+            anti_aliased_color_g,
+            anti_aliased_color_b,
+            anti_aliased_color_a,
+        ),
+    };
 
     // maximum acceptable square distance between two colors;
     // 35215 is the maximum possible value for the YIQ difference metric
-    let threshold = threshold;
+    let threshold = options.threshold;
     let max_delta = 35215.0 * threshold * threshold;
     let mut diff_count = 0;
 
@@ -85,15 +81,15 @@ pub fn pixelmatch(
             let delta = color_delta(rgba1, rgba2, false);
             if delta > max_delta {
                 // check it's a real rendering difference or just anti-aliasing
-                if include_anti_alias
+                if options.include_anti_alias
                     && (anti_aliased(img1, x as usize, y as usize, (width, height), img2)
                         || anti_aliased(img2, x as usize, y as usize, (width, height), img1))
                 {
                     // one of the pixels is anti-aliasing; draw as yellow and do not count as difference
-                    draw_pixel(out, pos, anti_aliased_color);
+                    draw_pixel(out, pos, options.anti_aliased_color);
                 } else {
                     // found substantial difference not caused by anti-aliasing; draw it as red
-                    draw_pixel(out, pos, diff_color);
+                    draw_pixel(out, pos, options.diff_color);
                     diff_count += 1;
                 }
             } else {
@@ -194,19 +190,19 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
 
     let (width, height) = dimensions;
 
+    let rgba1 = f32x4(
+        img1[pos] as f32,
+        img1[pos + 1] as f32,
+        img1[pos + 2] as f32,
+        img1[pos + 3] as f32,
+    );
+
     // go through 8 adjacent pixels
     for x in x0..=x2 {
         for y in y0..=y2 {
             if x == x1 && y == y1 {
                 continue;
             }
-
-            let rgba1 = f32x4(
-                img1[pos] as f32,
-                img1[pos + 1] as f32,
-                img1[pos + 2] as f32,
-                img1[pos + 3] as f32,
-            );
 
             let pos2 = ((y * width as usize + x) * 4) as usize;
             let rgba2 = f32x4(
@@ -293,14 +289,6 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
                 zeroes += 1;
             }
 
-            // if img[pos] == img[pos2]
-            //     && img[pos + 1] == img[pos2 + 1]
-            //     && img[pos + 2] == img[pos2 + 2]
-            //     && img[pos + 3] == img[pos2 + 3]
-            // {
-            //     zeroes += 1;
-            // }
-
             if zeroes > 2 {
                 return true;
             }
@@ -327,7 +315,7 @@ mod test {
         let img2: [u8; 16] = [0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         let mut out: [u8; 16] = [0; 16];
 
-        let result = pixelmatch(&img1, &img2, &mut out, 2, 2);
+        let result = pixelmatch(&img1, &img2, &mut out, 2, 2, None);
         assert_eq!(result, 1);
         assert_eq!(
             out,
