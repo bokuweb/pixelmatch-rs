@@ -20,6 +20,7 @@ const FACTOR_I: v128 = f32x4(0.59597799, -0.27417610, -0.32180189, 1.0);
 const FACTOR_Q: v128 = f32x4(0.21147017, -0.52261711, 0.31114694, 1.0);
 const FACTOR_Y: v128 = f32x4(0.29889531, 0.58662247, 0.11448223, 1.0);
 const FACTOR_WHITE: v128 = f32x4(255.0, 255.0, 255.0, 0.0);
+const FACTOR_DELTA: v128 = f32x4(0.5053, 0.299, 0.1957, 0.0);
 
 #[wasm_bindgen]
 pub fn pixelmatch(
@@ -68,25 +69,29 @@ pub fn pixelmatch(
         for x in 0..width {
             let pos = ((y * width + x) * 4) as usize;
 
-            let rgba1 = f32x4(
-                img1[pos] as f32,
-                img1[pos + 1] as f32,
-                img1[pos + 2] as f32,
-                img1[pos + 3] as f32,
-            );
+            let rgba1 = unsafe {
+                f32x4(
+                    *img1.get_unchecked(pos) as f32,
+                    *img1.get_unchecked(pos + 1) as f32,
+                    *img1.get_unchecked(pos + 2) as f32,
+                    *img1.get_unchecked(pos + 3) as f32,
+                )
+            };
 
-            let rgba2 = f32x4(
-                img2[pos] as f32,
-                img2[pos + 1] as f32,
-                img2[pos + 2] as f32,
-                img2[pos + 3] as f32,
-            );
+            let rgba2 = unsafe {
+                f32x4(
+                    *img2.get_unchecked(pos) as f32,
+                    *img2.get_unchecked(pos + 1) as f32,
+                    *img2.get_unchecked(pos + 2) as f32,
+                    *img2.get_unchecked(pos + 3) as f32,
+                )
+            };
 
             // squared YUV distance between colors at this pixel position
             let delta = color_delta(rgba1, rgba2, false);
             if delta > max_delta {
                 // check it's a real rendering difference or just anti-aliasing
-                if options.include_anti_alias
+                if !options.include_anti_alias
                     && (anti_aliased(img1, x as usize, y as usize, (width, height), img2)
                         || anti_aliased(img2, x as usize, y as usize, (width, height), img1))
                 {
@@ -133,10 +138,10 @@ fn color_delta(rgba1: v128, rgba2: v128, only_brightness: bool) -> f32 {
     }
 
     let i = rgb2i(rgba1) - rgb2i(rgba2);
-
     let q = rgb2q(rgba1) - rgb2q(rgba2);
-
-    0.5053 * y * y + 0.299 * i * i + 0.1957 * q * q
+    let v = f32x4(y, i, q, 0.0);
+    sum_rgb(f32x4_mul(f32x4_mul(v, v), FACTOR_DELTA))
+    // 0.5053 * y * y + 0.299 * i * i + 0.1957 * q * q
 }
 
 /// blend semi-transparent color with white
