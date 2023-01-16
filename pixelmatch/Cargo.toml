@@ -11,7 +11,6 @@ name = "pixelmatch"
 path = "src/lib.rs"
 
 [dependencies]
-pixelmatch_shared = { path = "../pixelmatch-shared" }
 
 
 [dev-dependencies]

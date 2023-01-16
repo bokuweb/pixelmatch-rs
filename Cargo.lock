@@ -280,14 +280,12 @@ name = "pixelmatch-rs"
 version = "0.1.0"
 dependencies = [
  "image",
- "pixelmatch_shared",
 ]
 
 [[package]]
 name = "pixelmatch-simd-wasm"
 version = "0.1.0"
 dependencies = [
- "console_error_panic_hook",
  "wasm-bindgen",
  "wasm-bindgen-test",
 ]
@@ -295,10 +293,9 @@ dependencies = [
 [[package]]
 name = "pixelmatch-wasm"
 version = "0.1.0"
-
-[[package]]
-name = "pixelmatch_shared"
-version = "0.1.0"
+dependencies = [
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "png"
