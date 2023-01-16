@@ -1,4 +1,5 @@
 const Benchmark = require("benchmark");
+const pixelmatch = require("pixelmatch");
 const PNG = require("pngjs").PNG;
 const { readFileSync } = require("fs");
 
@@ -16,17 +17,24 @@ const without = require("../pixelmatch-wasm/node/cjs/index.cjs");
   suite
     .add("without", {
       fn: () =>
-        without.pixelmatch(img1, img2, 800, 578, { includeAntiAlias: false }),
+        without.pixelmatch(img1, img2, 800, 578, { includeAntiAlias: true }),
     })
     .add("simd", {
       fn: () =>
-        simd.pixelmatch(img1, img2, 800, 578, { includeAntiAlias: false }),
+        simd.pixelmatch(img1, img2, 800, 578, { includeAntiAlias: true }),
+    })
+    .add("js", {
+      fn: () => {
+        const out = new Uint8Array(img1.length);
+        pixelmatch(img1, img2, out, 800, 578, { includeAA: true });
+      },
     })
     .on("complete", () => {
       console.log(
         "Fastest is " + suite.filter("fastest").map("name"),
         suite[0].stats,
-        suite[1].stats
+        suite[1].stats,
+        suite[2].stats
       );
     })
     .run();

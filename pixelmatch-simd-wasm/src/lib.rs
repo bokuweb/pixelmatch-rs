@@ -120,6 +120,9 @@ fn sum_rgb(v: v128) -> f32 {
 // calculate color difference according to the paper "Measuring perceived color difference
 // using YIQ NTSC transmission color space in mobile applications" by Y. Kotsarenko and F. Ramos
 fn color_delta(rgba1: v128, rgba2: v128, only_brightness: bool) -> f32 {
+    let rgba1 = blend(rgba1);
+    let rgba2 = blend(rgba2);
+
     let y1 = rgb2y(rgba1);
     let y2 = rgb2y(rgba2);
 
@@ -135,7 +138,6 @@ fn color_delta(rgba1: v128, rgba2: v128, only_brightness: bool) -> f32 {
 
     0.5053 * y * y + 0.299 * i * i + 0.1957 * q * q
 }
-
 
 /// blend semi-transparent color with white
 fn blend(rgba: v128) -> v128 {
@@ -184,12 +186,14 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
 
     let (width, height) = dimensions;
 
-    let rgba1 = f32x4(
-        img1[pos] as f32,
-        img1[pos + 1] as f32,
-        img1[pos + 2] as f32,
-        img1[pos + 3] as f32,
-    );
+    let rgba1 = unsafe {
+        f32x4(
+            *img1.get_unchecked(pos) as f32,
+            *img1.get_unchecked(pos + 1) as f32,
+            *img1.get_unchecked(pos + 2) as f32,
+            *img1.get_unchecked(pos + 3) as f32,
+        )
+    };
 
     // go through 8 adjacent pixels
     for x in x0..=x2 {
@@ -199,12 +203,14 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
             }
 
             let pos2 = ((y * width as usize + x) * 4) as usize;
-            let rgba2 = f32x4(
-                img1[pos2] as f32,
-                img1[pos2 + 1] as f32,
-                img1[pos2 + 2] as f32,
-                img1[pos2 + 3] as f32,
-            );
+            let rgba2 = unsafe {
+                f32x4(
+                    *img1.get_unchecked(pos2) as f32,
+                    *img1.get_unchecked(pos2 + 1) as f32,
+                    *img1.get_unchecked(pos2 + 2) as f32,
+                    *img1.get_unchecked(pos2 + 3) as f32,
+                )
+            };
 
             // brightness delta between the center pixel and adjacent one
             let delta = color_delta(rgba1, rgba2, true) as i32;
@@ -251,12 +257,14 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
     let y2 = min(y1 + 1, height as usize - 1);
     let pos = (y1 * width as usize + x1) * 4;
 
-    let rgba1 = f32x4(
-        img[pos] as f32,
-        img[pos + 1] as f32,
-        img[pos + 2] as f32,
-        img[pos + 3] as f32,
-    );
+    let rgba1 = unsafe {
+        f32x4(
+            *img.get_unchecked(pos) as f32,
+            *img.get_unchecked(pos + 1) as f32,
+            *img.get_unchecked(pos + 2) as f32,
+            *img.get_unchecked(pos + 3) as f32,
+        )
+    };
 
     let mut zeroes = if x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 {
         1
@@ -272,12 +280,14 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
             }
 
             let pos2 = (y * width as usize + x) * 4;
-            let rgba2 = f32x4(
-                img[pos2] as f32,
-                img[pos2 + 1] as f32,
-                img[pos2 + 2] as f32,
-                img[pos2 + 3] as f32,
-            );
+            let rgba2 = unsafe {
+                f32x4(
+                    *img.get_unchecked(pos2) as f32,
+                    *img.get_unchecked(pos2 + 1) as f32,
+                    *img.get_unchecked(pos2 + 2) as f32,
+                    *img.get_unchecked(pos2 + 3) as f32,
+                )
+            };
 
             if v128_any_true(f32x4_eq(rgba1, rgba2)) {
                 zeroes += 1;
@@ -292,10 +302,12 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
 }
 
 fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: Rgba) {
-    diff_buf[pos] = rgba.0;
-    diff_buf[pos + 1] = rgba.1;
-    diff_buf[pos + 2] = rgba.2;
-    diff_buf[pos + 3] = rgba.3;
+    unsafe {
+        *diff_buf.get_unchecked_mut(pos) = rgba.0;
+        *diff_buf.get_unchecked_mut(pos + 1) = rgba.1;
+        *diff_buf.get_unchecked_mut(pos + 2) = rgba.2;
+        *diff_buf.get_unchecked_mut(pos + 3) = rgba.3;
+    }
 }
 
 #[cfg(test)]
@@ -309,7 +321,9 @@ mod test {
         let img2: [u8; 16] = [0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         let mut out: [u8; 16] = [0; 16];
 
-        let result = pixelmatch(&img1, &img2, &mut out, 2, 2, None);
+        let result = pixelmatch(
+            &img1, &img2, &mut out, 2, 2, true, 0.1, 255, 119, 119, 255, 243, 156, 18, 255,
+        );
         assert_eq!(result, 1);
         assert_eq!(
             out,
