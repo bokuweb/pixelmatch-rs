@@ -6,9 +6,12 @@ pub type Rgb = (u8, u8, u8);
 pub static DEFAULT_DIFF_COLOR: Rgba = (255, 119, 119, 255);
 pub static DEFAULT_ANTI_ALIASED_COLOR: Rgba = (243, 156, 18, 255);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// an error of pixelmatch
 pub enum PixelmatchError {
+    /// if img1 and img2 slice length is not same, return this error.
     ImageLengthError,
+    /// if img1 or img2 slice is not inferred as rgba 24bit data, return this error.
     InvalidFormatError,
 }
 
@@ -35,16 +38,24 @@ impl std::error::Error for PixelmatchError {
 }
 
 #[derive(Debug)]
+/// an output of pixelmatch
 pub struct PixelmatchOutput {
+    /// difference count
     pub diff_count: usize,
+    /// a base rgba difference image data vec.
     pub diff_image: Vec<u8>,
 }
 
-#[derive(Debug)]
+/// an option for pixelmatch
+#[derive(Debug, Clone, PartialEq)]
 pub struct PixelmatchOption {
+    /// whether to skip anti-aliasing detection
     pub include_anti_alias: bool,
+    /// matching threshold (0 to 1); smaller is more sensitive
     pub threshold: f32,
+    /// color of different pixels in diff output
     pub diff_color: Rgba,
+    /// color of anti-aliased pixels in diff output
     pub anti_aliased_color: Rgba,
 }
 
@@ -59,6 +70,25 @@ impl Default for PixelmatchOption {
     }
 }
 
+/// `pixelmatch` is pixel-level image comparison library ported from https://github.com/mapbox/pixelmatch.
+/// returns difference count and images.
+///
+/// # Arguments
+///
+/// * `img1` - a base rgba 24bit image data slice.
+/// * `img2` - a target rgba 24bit image data slice.　Please input the same size data as img1.
+/// * `dimensions` - a size of image.
+/// * `options` - an option for pixelmatch.
+///
+/// # Examples
+///
+/// ```
+/// use pixelmatch::*;
+///
+/// let img1 = vec![255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+/// let img2 = vec![0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+/// let result = pixelmatch(&img1, &img2, (2, 2), None).unwrap();
+/// ```
 pub fn pixelmatch(
     img1: &[u8],
     img2: &[u8],
