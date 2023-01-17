@@ -1,5 +1,4 @@
 #![no_std]
-use core::arch::wasm32::*;
 use core::cmp::{max, min};
 use wasm_bindgen::prelude::*;
 
@@ -66,7 +65,7 @@ pub fn pixelmatch(
             let delta = color_delta(img1, img2, pos, pos, false);
             if delta > max_delta {
                 // check it's a real rendering difference or just anti-aliasing
-                if options.include_anti_alias
+                if !options.include_anti_alias
                     && (anti_aliased(img1, x as usize, y as usize, (width, height), img2)
                         || anti_aliased(img2, x as usize, y as usize, (width, height), img1))
                 {
@@ -88,44 +87,50 @@ pub fn pixelmatch(
 }
 
 fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: Rgba) {
-    diff_buf[pos] = rgba.0;
-    diff_buf[pos + 1] = rgba.1;
-    diff_buf[pos + 2] = rgba.2;
-    diff_buf[pos + 3] = rgba.3;
+    unsafe {
+        *diff_buf.get_unchecked_mut(pos) = rgba.0;
+        *diff_buf.get_unchecked_mut(pos + 1) = rgba.1;
+        *diff_buf.get_unchecked_mut(pos + 2) = rgba.2;
+        *diff_buf.get_unchecked_mut(pos + 3) = rgba.3;
+    }
 }
 
 fn gray_pixel(img: &[u8], pos: usize) -> u8 {
-    let a = img[pos + 3] as f32 / 255.0;
-    let r = blend(img[pos], a);
-    let g = blend(img[pos + 1], a);
-    let b = blend(img[pos + 2], a);
-    rgb2y(r, g, b) as u8
+    unsafe {
+        let a = *img.get_unchecked(pos + 3) as f32 / 255.0;
+        let r = blend(*img.get_unchecked(pos), a);
+        let g = blend(*img.get_unchecked(pos + 1), a);
+        let b = blend(*img.get_unchecked(pos + 2), a);
+        rgb2y(r, g, b) as u8
+    }
 }
 
 // calculate color difference according to the paper "Measuring perceived color difference
 // using YIQ NTSC transmission color space in mobile applications" by Y. Kotsarenko and F. Ramos
 fn color_delta(img1: &[u8], img2: &[u8], pos1: usize, pos2: usize, only_brightness: bool) -> f32 {
-    let a1 = img1[pos1 + 3] as f32 / 255.0;
-    let a2 = img2[pos2 + 3] as f32 / 255.0;
+    unsafe {
+        let a1 = *img1.get_unchecked(pos1 + 3) as f32 / 255.0;
+        let a2 = *img2.get_unchecked(pos2 + 3) as f32 / 255.0;
 
-    let r1 = blend(img1[pos1], a1);
-    let g1 = blend(img1[pos1 + 1], a1);
-    let b1 = blend(img1[pos1 + 2], a1);
+        let r1 = blend(*img1.get_unchecked(pos1), a1);
+        let g1 = blend(*img1.get_unchecked(pos1 + 1), a1);
+        let b1 = blend(*img1.get_unchecked(pos1 + 2), a1);
 
-    let r2 = blend(img2[pos2], a2);
-    let g2 = blend(img2[pos2 + 1], a2);
-    let b2 = blend(img2[pos2 + 2], a2);
+        let r2 = blend(*img2.get_unchecked(pos2), a2);
+        let g2 = blend(*img2.get_unchecked(pos2 + 1), a2);
+        let b2 = blend(*img2.get_unchecked(pos2 + 2), a2);
 
-    let y = rgb2y(r1, g1, b1) - rgb2y(r2, g2, b2);
+        let y = rgb2y(r1, g1, b1) - rgb2y(r2, g2, b2);
 
-    if only_brightness {
-        return y;
+        if only_brightness {
+            return y;
+        }
+
+        let i = rgb2i(r1, g1, b1) - rgb2i(r2, g2, b2);
+        let q = rgb2q(r1, g1, b1) - rgb2q(r2, g2, b2);
+
+        0.5053 * y * y + 0.299 * i * i + 0.1957 * q * q
     }
-
-    let i = rgb2i(r1, g1, b1) - rgb2i(r2, g2, b2);
-    let q = rgb2q(r1, g1, b1) - rgb2q(r2, g2, b2);
-
-    0.5053 * y * y + 0.299 * i * i + 0.1957 * q * q
 }
 
 // blend semi-transparent color with white
@@ -242,11 +247,13 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
 
             let pos2 = (y * width as usize + x) * 4;
 
-            if img[pos] == img[pos2]
-                && img[pos + 1] == img[pos2 + 1]
-                && img[pos + 2] == img[pos2 + 2]
-                && img[pos + 3] == img[pos2 + 3]
-            {
+            let eq = unsafe {
+                *img.get_unchecked(pos) == *img.get_unchecked(pos2)
+                    && *img.get_unchecked(pos + 1) == *img.get_unchecked(pos2 + 1)
+                    && *img.get_unchecked(pos + 2) == *img.get_unchecked(pos2 + 2)
+                    && *img.get_unchecked(pos + 3) == *img.get_unchecked(pos2 + 3)
+            };
+            if eq {
                 zeroes += 1;
             }
 

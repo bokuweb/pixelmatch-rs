@@ -3,11 +3,11 @@ const pixelmatch = require("pixelmatch");
 const PNG = require("pngjs").PNG;
 const { readFileSync } = require("fs");
 
-const simd2 = require("../pixelmatch-simd-wasm/node/cjs/index.cjs");
+const simd = require("../pixelmatch-simd-wasm/node/cjs/index.cjs");
 const without = require("../pixelmatch-wasm/node/cjs/index.cjs");
 
-let imports = {};
-let wasm;
+/*
+let asm;
 
 let cachedUint8Memory0 = new Uint8Array();
 
@@ -124,28 +124,32 @@ const bytes = require("fs").readFileSync(path);
 const wasmModule = new WebAssembly.Module(bytes);
 const wasmInstance = new WebAssembly.Instance(wasmModule, imports);
 wasm = wasmInstance.exports;
+*/
 
 (async () => {
   const suite = new Benchmark.Suite("simd");
   const img1 = PNG.sync.read(readFileSync("../fixtures/002a.png")).data;
   const img2 = PNG.sync.read(readFileSync("../fixtures/002b.png")).data;
   suite
-    // .add("without", {
-    //   fn: () =>
-    //     without.pixelmatch(img1, img2, 7488, 5242, { includeAntiAlias: true }),
-    // })
-    .add("simd", {
-      fn: () => simd(img1, img2, 10000, 8000, { includeAntiAlias: false }),
+    .add("without", {
+      fn: () =>
+        without.pixelmatch(img1, img2, 10000, 8000, {
+          includeAntiAlias: false,
+        }),
     })
+    // .add("simd", {
+    //   fn: () => simd(img1, img2, 7488, 5242, { includeAntiAlias: false }),
+    //   fn: () => simd(img1, img2, 10000, 8000, { includeAntiAlias: false }),
+    // })
     .add("js", {
       fn: () => {
         const out = new Uint8Array(img1.length);
         pixelmatch(img1, img2, out, 10000, 8000, { includeAA: false });
       },
     })
-    .add("simd2", {
+    .add("simd", {
       fn: () =>
-        simd2.pixelmatch(img1, img2, 10000, 8000, { includeAntiAlias: false }),
+        simd.pixelmatch(img1, img2, 10000, 8000, { includeAntiAlias: false }),
     })
     .on("complete", () => {
       console.log(
