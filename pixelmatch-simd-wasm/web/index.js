@@ -1,6 +1,11 @@
-import { pixelmatch as inner } from "../../dist/web/pkg/pixelmatch_simd_wasm";
+import { pixelmatch as inner } from "../dist/web/pkg/pixelmatch_simd_wasm.js";
+import {
+  createDefaultOptions,
+  InvalidFormatError,
+  ImageLengthError,
+} from "../common/esm/index.js";
 
-export const pixelmatch = (img1, img2, w, h, opts) => {
+export const pixelmatch = (img1, img2, w, h, opts = {}) => {
   const out = new Uint8Array(img1.length);
   const defaultOptions = createDefaultOptions();
   const diffColor = opts.diffColor ?? defaultOptions.diffColor;

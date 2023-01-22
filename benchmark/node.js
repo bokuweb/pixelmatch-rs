@@ -6,11 +6,29 @@ const { readFileSync } = require("fs");
 const simd = require("../pixelmatch-simd-wasm/node/cjs/index.cjs");
 const without = require("../pixelmatch-wasm/node/cjs/index.cjs");
 
-/*
-let asm;
+const data = [
+  {
+    base: "../fixtures/000a.png",
+    target: "../fixtures/000b.png",
+    w: 7488,
+    h: 5242,
+  },
+  {
+    base: "../fixtures/001a.png",
+    target: "../fixtures/001b.png",
+    w: 800,
+    h: 578,
+  },
+  {
+    base: "../fixtures/002a.png",
+    target: "../fixtures/002b.png",
+    w: 10000,
+    h: 8000,
+  },
+];
+
 
 let cachedUint8Memory0 = new Uint8Array();
-
 function getUint8Memory0() {
   if (cachedUint8Memory0.byteLength === 0) {
     cachedUint8Memory0 = new Uint8Array(wasm.memory.buffer);
@@ -89,7 +107,7 @@ const createDefaultOptions = () => {
   };
 };
 
-const simd = (img1, img2, w, h, opts) => {
+const simd_without_glue = (img1, img2, w, h, opts) => {
   const out = new Uint8Array(img1.length);
   const defaultOptions = createDefaultOptions();
   const diffColor = opts.diffColor ?? defaultOptions.diffColor;
@@ -122,43 +140,47 @@ const path = require("path").join(
 const bytes = require("fs").readFileSync(path);
 
 const wasmModule = new WebAssembly.Module(bytes);
-const wasmInstance = new WebAssembly.Instance(wasmModule, imports);
+const wasmInstance = new WebAssembly.Instance(wasmModule, {});
 wasm = wasmInstance.exports;
-*/
 
 (async () => {
-  const suite = new Benchmark.Suite("simd");
-  const img1 = PNG.sync.read(readFileSync("../fixtures/002a.png")).data;
-  const img2 = PNG.sync.read(readFileSync("../fixtures/002b.png")).data;
-  suite
-    .add("without", {
-      fn: () =>
-        without.pixelmatch(img1, img2, 10000, 8000, {
-          includeAntiAlias: false,
-        }),
-    })
-    // .add("simd", {
-    //   fn: () => simd(img1, img2, 7488, 5242, { includeAntiAlias: false }),
-    //   fn: () => simd(img1, img2, 10000, 8000, { includeAntiAlias: false }),
-    // })
-    .add("js", {
-      fn: () => {
-        const out = new Uint8Array(img1.length);
-        pixelmatch(img1, img2, out, 10000, 8000, { includeAA: false });
-      },
-    })
-    .add("simd", {
-      fn: () =>
-        simd.pixelmatch(img1, img2, 10000, 8000, { includeAntiAlias: false }),
-    })
-    .on("complete", () => {
-      console.log(
-        "Fastest is " + suite.filter("fastest").map("name"),
-        suite[0].stats,
-        suite[1].stats,
-        suite[2].stats
-        // suite[3].stats
-      );
-    })
-    .run();
+  data.forEach(({ target, base, w, h }) => {
+    const suite = new Benchmark.Suite("simd");
+    const img1 = PNG.sync.read(readFileSync(base)).data;
+    const img2 = PNG.sync.read(readFileSync(target)).data;
+    suite
+      .add("js", {
+        fn: () => {
+          const out = new Uint8Array(img1.length);
+          pixelmatch(img1, img2, out, w, h, { includeAA: false });
+        },
+      })
+      .add("default", {
+        fn: () =>
+          without.pixelmatch(img1, img2, w, h, {
+            includeAntiAlias: false,
+          }),
+      })
+      .add("without glue", {
+        fn: () => simd_without_glue(img1, img2, w, h, { includeAntiAlias: false }),
+      })
+      .add("simd", {
+        fn: () =>
+          simd.pixelmatch(img1, img2, w, h, { includeAntiAlias: false }),
+      })
+      .on("complete", () => {
+        console.log(
+          "Fastest is " + suite.filter("fastest").map("name"),
+          "js",
+          suite[0].stats.mean,
+          "default",
+          suite[1].stats.mean,
+          "without glue",
+          suite[2].stats.mean,
+          "simd",
+          suite[3].stats.mean
+        );
+      })
+      .run();
+  });
 })().catch((e) => console.error(e));

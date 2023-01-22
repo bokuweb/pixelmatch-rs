@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@bokuweb/pixelmatch-wasm@^0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@bokuweb/pixelmatch-wasm/-/pixelmatch-wasm-0.0.4.tgz#496eb081c0a50f28e63476f208d08f7391ccc648"
+  integrity sha512-mtepkeWcqUsOso9sv65lwVzp34UJxafG2MVEILwxIbriMFvJKzr3nRtnrqKjNO2KCZCOKRQ6HenP1pir7C5bkA==
+
 "@esbuild/android-arm64@0.16.17":
   version "0.16.17"
   resolved "https://registry.yarnpkg.com/@esbuild/android-arm64/-/android-arm64-0.16.17.tgz#cf91e86df127aa3d141744edafcba0abdc577d23"

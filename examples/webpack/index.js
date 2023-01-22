@@ -1,4 +1,10 @@
-import * as wasm from "../../pixelmatch-simd-wasm/dist/web/pkg/pixelmatch_simd_wasm_bg.wasm";
+import { pixelmatch } from "@bokuweb/pixelmatch-wasm";
 
-console.log(wasm.pxmatch);
-alert("hello");
+console.log(
+  pixelmatch(
+    new Uint8Array([255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    new Uint8Array([255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    2,
+    2
+  )
+);

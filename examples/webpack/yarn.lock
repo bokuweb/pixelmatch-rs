@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@bokuweb/pixelmatch-wasm@^0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@bokuweb/pixelmatch-wasm/-/pixelmatch-wasm-0.0.4.tgz#496eb081c0a50f28e63476f208d08f7391ccc648"
+  integrity sha512-mtepkeWcqUsOso9sv65lwVzp34UJxafG2MVEILwxIbriMFvJKzr3nRtnrqKjNO2KCZCOKRQ6HenP1pir7C5bkA==
+
 "@discoveryjs/json-ext@^0.5.0":
   version "0.5.7"
   resolved "https://registry.yarnpkg.com/@discoveryjs/json-ext/-/json-ext-0.5.7.tgz#1d572bfbbe14b7704e0ba0f39b74815b84870d70"

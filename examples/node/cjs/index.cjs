@@ -1,6 +1,4 @@
-const {
-  pixelmatch,
-} = require("../../../pixelmatch-simd-wasm/node/cjs/index.cjs");
+const { pixelmatch } = require("@bokuweb/pixelmatch-wasm");
 
 const res = pixelmatch(
   new Uint8Array([255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),

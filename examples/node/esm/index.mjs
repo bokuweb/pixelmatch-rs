@@ -1,4 +1,4 @@
-import { pixelmatch } from "../../../pixelmatch-simd-wasm/node/esm/index.mjs";
+import { pixelmatch } from "@bokuweb/pixelmatch-wasm";
 
 const res = pixelmatch(
   new Uint8Array([255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),

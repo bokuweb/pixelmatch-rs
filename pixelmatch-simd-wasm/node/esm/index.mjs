@@ -113,7 +113,7 @@ const wasmModule = new WebAssembly.Module(bytes);
 const wasmInstance = new WebAssembly.Instance(wasmModule, imports);
 wasm = wasmInstance.exports;
 
-export const pixelmatch = (img1, img2, w, h, opts) => {
+export const pixelmatch = (img1, img2, w, h, opts = {}) => {
   const out = new Uint8Array(img1.length);
   const defaultOptions = createDefaultOptions();
   const diffColor = opts.diffColor ?? defaultOptions.diffColor;
