@@ -15,11 +15,11 @@ pub struct Rgba(u8, u8, u8, u8);
 const IMAGE_LENGTH_ERROR: isize = -1;
 const INVALID_FORMAT_ERROR: isize = -2;
 
-const FACTOR_I: v128 = f32x4(0.59597799, -0.27417610, -0.32180189, 1.0);
-const FACTOR_Q: v128 = f32x4(0.21147017, -0.52261711, 0.31114694, 1.0);
-const FACTOR_Y: v128 = f32x4(0.29889531, 0.58662247, 0.11448223, 1.0);
-const FACTOR_WHITE: v128 = f32x4(255.0, 255.0, 255.0, 0.0);
-const FACTOR_DELTA: v128 = f32x4(0.5053, 0.299, 0.1957, 0.0);
+const V_Y: v128 = f32x4(0.29889531, 0.58662247, 0.11448223, 1.0);
+const V_I: v128 = f32x4(0.59597799, -0.27417610, -0.32180189, 1.0);
+const V_Q: v128 = f32x4(0.21147017, -0.52261711, 0.31114694, 1.0);
+const V_WHITE: v128 = f32x4(255.0, 255.0, 255.0, 0.0);
+const V_DELTA: v128 = f32x4(0.5053, 0.299, 0.1957, 0.0);
 
 #[wasm_bindgen]
 pub fn pixelmatch(
@@ -88,7 +88,7 @@ pub fn pixelmatch(
 
             // squared YUV distance between colors at this pixel position
             let delta = color_delta(rgba1, rgba2, false);
-            if delta > max_delta {
+            if f32::abs(delta) > max_delta {
                 // check it's a real rendering difference or just anti-aliasing
                 if !options.include_anti_alias
                     && (anti_aliased(img1, x as usize, y as usize, (width, height), img2)
@@ -124,8 +124,14 @@ fn sum_rgb(v: v128) -> f32 {
 // calculate color difference according to the paper "Measuring perceived color difference
 // using YIQ NTSC transmission color space in mobile applications" by Y. Kotsarenko and F. Ramos
 fn color_delta(rgba1: v128, rgba2: v128, only_brightness: bool) -> f32 {
-    let rgba1 = blend(rgba1);
-    let rgba2 = blend(rgba2);
+    if u32x4_all_true(f32x4_convert_u32x4(f32x4_eq(rgba1, rgba2))) {
+        return 0.0;
+    }
+    let a1 = f32x4_extract_lane::<3>(rgba1);
+    let a2 = f32x4_extract_lane::<3>(rgba2);
+
+    let rgba1 = if a1 < 255.0 { blend(rgba1) } else { rgba1 };
+    let rgba2 = if a2 < 255.0 { blend(rgba2) } else { rgba2 };
 
     let y1 = rgb2y(rgba1);
     let y2 = rgb2y(rgba2);
@@ -138,30 +144,37 @@ fn color_delta(rgba1: v128, rgba2: v128, only_brightness: bool) -> f32 {
 
     let i = rgb2i(rgba1) - rgb2i(rgba2);
     let q = rgb2q(rgba1) - rgb2q(rgba2);
+
     let v = f32x4(y, i, q, 0.0);
-    sum_rgb(f32x4_mul(f32x4_mul(v, v), FACTOR_DELTA))
-    // 0.5053 * y * y + 0.299 * i * i + 0.1957 * q * q
+    let delta = sum_rgb(f32x4_mul(f32x4_mul(v, v), V_DELTA));
+    // let delta = 0.5053 * y * y + 0.299 * i * i + 0.1957 * q * q;
+
+    if y1 > y2 {
+        -delta
+    } else {
+        delta
+    }
 }
 
 /// blend semi-transparent color with white
 fn blend(rgba: v128) -> v128 {
     let a = f32x4_extract_lane::<3>(rgba) / 255.0;
     f32x4_add(
-        f32x4_mul(f32x4_sub(rgba, FACTOR_WHITE), f32x4(a, a, a, 1.0)),
-        FACTOR_WHITE,
+        f32x4_mul(f32x4_sub(rgba, V_WHITE), f32x4(a, a, a, 1.0)),
+        V_WHITE,
     )
 }
 
+fn rgb2y(px: v128) -> f32 {
+    sum_rgb(f32x4_mul(px, V_Y))
+}
+
 fn rgb2i(rgba: v128) -> f32 {
-    sum_rgb(f32x4_mul(rgba, FACTOR_I))
+    sum_rgb(f32x4_mul(rgba, V_I))
 }
 
 fn rgb2q(rgba: v128) -> f32 {
-    sum_rgb(f32x4_mul(rgba, FACTOR_Q))
-}
-
-fn rgb2y(px: v128) -> f32 {
-    sum_rgb(f32x4_mul(px, FACTOR_Y))
+    sum_rgb(f32x4_mul(rgba, V_Q))
 }
 
 // check if a pixel is likely a part of anti-aliasing;
@@ -181,8 +194,8 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
         0
     };
 
-    let mut min = 0;
-    let mut max = 0;
+    let mut min = 0.0;
+    let mut max = 0.0;
     let mut min_x = 0;
     let mut min_y = 0;
     let mut max_x = 0;
@@ -217,10 +230,10 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
             };
 
             // brightness delta between the center pixel and adjacent one
-            let delta = color_delta(rgba1, rgba2, true) as i32;
+            let delta = color_delta(rgba1, rgba2, true);
 
             // count the number of equal, darker and brighter adjacent pixels
-            if delta == 0 {
+            if delta == 0.0 {
                 zeroes += 1;
                 // if found more than 2 equal siblings, it's definitely not anti-aliasing
                 if zeroes > 2 {
@@ -241,7 +254,7 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
     }
 
     // if there are no both darker and brighter pixels among siblings, it's not anti-aliasing
-    if min == 0 || max == 0 {
+    if min == 0.0 || max == 0.0 {
         return false;
     }
 
@@ -293,7 +306,7 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
                 )
             };
 
-            if v128_any_true(f32x4_eq(rgba1, rgba2)) {
+            if u32x4_all_true(f32x4_convert_u32x4(f32x4_eq(rgba1, rgba2))) {
                 zeroes += 1;
             }
 

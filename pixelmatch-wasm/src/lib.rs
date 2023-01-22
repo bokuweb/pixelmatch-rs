@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 struct PixelmatchOption {
     pub include_anti_alias: bool,
-    pub threshold: f64,
+    pub threshold: f32,
     pub diff_color: Rgba,
     pub anti_aliased_color: Rgba,
 }
@@ -22,7 +22,7 @@ pub fn pixelmatch(
     width: u32,
     height: u32,
     include_anti_alias: bool,
-    threshold: f64,
+    threshold: f32,
     diff_color_r: u8,
     diff_color_g: u8,
     diff_color_b: u8,
@@ -62,7 +62,7 @@ pub fn pixelmatch(
             let pos = ((y * width + x) * 4) as usize;
             // squared YUV distance between colors at this pixel position
             let delta = color_delta(img1, img2, pos, pos, false);
-            if f64::abs(delta) > max_delta {
+            if f32::abs(delta) > max_delta {
                 // check it's a real rendering difference or just anti-aliasing
                 if !options.include_anti_alias
                     && (anti_aliased(img1, x as usize, y as usize, (width, height), img2)
@@ -96,7 +96,7 @@ fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: &Rgba) {
 
 fn gray_pixel(img: &[u8], pos: usize) -> u8 {
     unsafe {
-        let a = *img.get_unchecked(pos + 3) as f64 / 255.0;
+        let a = *img.get_unchecked(pos + 3) as f32 / 255.0;
         let r = blend(*img.get_unchecked(pos), a);
         let g = blend(*img.get_unchecked(pos + 1), a);
         let b = blend(*img.get_unchecked(pos + 2), a);
@@ -106,7 +106,7 @@ fn gray_pixel(img: &[u8], pos: usize) -> u8 {
 
 // calculate color difference according to the paper "Measuring perceived color difference
 // using YIQ NTSC transmission color space in mobile applications" by Y. Kotsarenko and F. Ramos
-fn color_delta(img1: &[u8], img2: &[u8], pos1: usize, pos2: usize, only_brightness: bool) -> f64 {
+fn color_delta(img1: &[u8], img2: &[u8], pos1: usize, pos2: usize, only_brightness: bool) -> f32 {
     unsafe {
         let r1 = *img1.get_unchecked(pos1);
         let g1 = *img1.get_unchecked(pos1 + 1);
@@ -123,17 +123,17 @@ fn color_delta(img1: &[u8], img2: &[u8], pos1: usize, pos2: usize, only_brightne
         }
 
         let (r1, g1, b1) = if a1 < 255 {
-            let a1 = a1 as f64 / 255.0;
+            let a1 = a1 as f32 / 255.0;
             (blend(r1, a1), blend(g1, a1), blend(b1, a1))
         } else {
-            (r1 as f64, g1 as f64, b1 as f64)
+            (r1 as f32, g1 as f32, b1 as f32)
         };
 
         let (r2, g2, b2) = if a2 < 255 {
-            let a2 = a2 as f64 / 255.0;
+            let a2 = a2 as f32 / 255.0;
             (blend(r2, a2), blend(g2, a2), blend(b2, a2))
         } else {
-            (r2 as f64, g2 as f64, b2 as f64)
+            (r2 as f32, g2 as f32, b2 as f32)
         };
 
         let y1 = rgb2y(r1, g1, b1);
@@ -157,19 +157,19 @@ fn color_delta(img1: &[u8], img2: &[u8], pos1: usize, pos2: usize, only_brightne
 }
 
 // blend semi-transparent color with white
-fn blend(c: u8, a: f64) -> f64 {
-    255.0 + ((c as f64 - 255.0) as f64) * a
+fn blend(c: u8, a: f32) -> f32 {
+    255.0 + ((c as f32 - 255.0) as f32) * a
 }
 
-fn rgb2y(r: f64, g: f64, b: f64) -> f64 {
+fn rgb2y(r: f32, g: f32, b: f32) -> f32 {
     r * 0.29889531 + g * 0.58662247 + b * 0.11448223
 }
 
-fn rgb2i(r: f64, g: f64, b: f64) -> f64 {
+fn rgb2i(r: f32, g: f32, b: f32) -> f32 {
     r * 0.59597799 - g * 0.2741761 - b * 0.32180189
 }
 
-fn rgb2q(r: f64, g: f64, b: f64) -> f64 {
+fn rgb2q(r: f32, g: f32, b: f32) -> f32 {
     r * 0.21147017 - g * 0.52261711 + b * 0.31114694
 }
 
@@ -223,12 +223,12 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
                     return false;
                 }
                 // remember the darkest pixel
-            } else if delta < min as f64 {
+            } else if delta < min {
                 min = delta;
                 min_x = x;
                 min_y = y;
                 // remember the brightest pixel
-            } else if delta > max as f64 {
+            } else if delta > max {
                 max = delta;
                 max_x = x;
                 max_y = y;

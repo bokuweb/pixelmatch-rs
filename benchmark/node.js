@@ -166,8 +166,9 @@ wasm = wasmInstance.exports;
           }),
       })
       // .add("without glue", {
-      //   fn: () => simd_without_glue(img1, img2, w, h, { includeAntiAlias: true }),
+      //   fn: () => simd_without_glue(img1, img2, w, h, { includeAntiAlias: false }),
       // })
+
       .add("simd", {
         fn: () =>
           simd.pixelmatch(img1, img2, w, h, {
