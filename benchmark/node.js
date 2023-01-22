@@ -160,10 +160,10 @@ wasm = wasmInstance.exports;
       })
       .add("default", {
         fn: () =>
-          without.pixelmatch(img1, img2, w, h, {
+          console.log(without.pixelmatch(img1, img2, w, h, {
             includeAntiAlias: false,
             threshold: 0.1,
-          }),
+          }).count),
       })
       // .add("without glue", {
       //   fn: () => simd_without_glue(img1, img2, w, h, { includeAntiAlias: false }),
@@ -171,10 +171,10 @@ wasm = wasmInstance.exports;
 
       .add("simd", {
         fn: () =>
-          simd.pixelmatch(img1, img2, w, h, {
+          console.log(simd.pixelmatch(img1, img2, w, h, {
             includeAntiAlias: false,
             threshold: 0.1,
-          }),
+          }).count),
       })
       .on("complete", () => {
         console.log(

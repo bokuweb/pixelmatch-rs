@@ -91,8 +91,8 @@ pub fn pixelmatch(
             if f32::abs(delta) > max_delta {
                 // check it's a real rendering difference or just anti-aliasing
                 if !options.include_anti_alias
-                    && (anti_aliased(img1, x as usize, y as usize, (width, height), img2)
-                        || anti_aliased(img2, x as usize, y as usize, (width, height), img1))
+                    && (anti_aliased(img1, x as usize, y as usize, rgba1, (width, height), img2)
+                        || anti_aliased(img2, x as usize, y as usize, rgba2, (width, height), img1))
                 {
                     // one of the pixels is anti-aliasing; draw as yellow and do not count as difference
                     draw_pixel(out, pos, &options.anti_aliased_color);
@@ -104,7 +104,7 @@ pub fn pixelmatch(
             } else {
                 let c = gray_pixel(rgba1);
                 // pixels are similar; draw background as grayscale image blended with white
-                let y = (255.0 + ((c as i32 - 255) as f32) * 0.1) as u8;
+                let y = (255.0 + (c - 255.0) * 0.1) as u8;
                 draw_pixel(out, pos, &Rgba(y, y, y, 255));
             }
         }
@@ -112,9 +112,10 @@ pub fn pixelmatch(
     diff_count
 }
 
-fn gray_pixel(rgba: v128) -> u8 {
-    let rgba = blend(rgba);
-    rgb2y(rgba) as u8
+fn gray_pixel(rgba: v128) -> f32 {
+    let a = f32x4_extract_lane::<3>(rgba);
+    let rgba = blend(rgba, a);
+    rgb2y(rgba)
 }
 
 fn sum_rgb(v: v128) -> f32 {
@@ -130,8 +131,8 @@ fn color_delta(rgba1: v128, rgba2: v128, only_brightness: bool) -> f32 {
     let a1 = f32x4_extract_lane::<3>(rgba1);
     let a2 = f32x4_extract_lane::<3>(rgba2);
 
-    let rgba1 = if a1 < 255.0 { blend(rgba1) } else { rgba1 };
-    let rgba2 = if a2 < 255.0 { blend(rgba2) } else { rgba2 };
+    let rgba1 = if a1 < 255.0 { blend(rgba1, a1) } else { rgba1 };
+    let rgba2 = if a2 < 255.0 { blend(rgba2, a2) } else { rgba2 };
 
     let y1 = rgb2y(rgba1);
     let y2 = rgb2y(rgba2);
@@ -157,8 +158,8 @@ fn color_delta(rgba1: v128, rgba2: v128, only_brightness: bool) -> f32 {
 }
 
 /// blend semi-transparent color with white
-fn blend(rgba: v128) -> v128 {
-    let a = f32x4_extract_lane::<3>(rgba) / 255.0;
+fn blend(rgba: v128, a: f32) -> v128 {
+    let a = a / 255.0;
     f32x4_add(
         f32x4_mul(f32x4_sub(rgba, V_WHITE), f32x4(a, a, a, 1.0)),
         V_WHITE,
@@ -180,14 +181,21 @@ fn rgb2q(rgba: v128) -> f32 {
 // check if a pixel is likely a part of anti-aliasing;
 // based on "Anti-aliased Pixel and Intensity Slope Detector" paper by V. Vysniauskas, 2009
 // http://eejournal.ktu.lt/index.php/elt/article/view/10058/5000
-fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2: &[u8]) -> bool {
+fn anti_aliased(
+    img1: &[u8],
+    x1: usize,
+    y1: usize,
+    rgba1: v128,
+    dimensions: (u32, u32),
+    img2: &[u8],
+) -> bool {
     let x0 = max(x1 as i32 - 1, 0) as usize;
     let y0 = max(y1 as i32 - 1, 0) as usize;
 
     let x2 = min(x1 as i32 + 1, dimensions.0 as i32 - 1) as usize;
     let y2 = min(y1 as i32 + 1, dimensions.1 as i32 - 1) as usize;
 
-    let pos = (y1 * dimensions.0 as usize + x1) * 4;
+    // let pos = (y1 * dimensions.0 as usize + x1) * 4;
     let mut zeroes = if x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 {
         1
     } else {
@@ -203,14 +211,14 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
 
     let (width, height) = dimensions;
 
-    let rgba1 = unsafe {
-        f32x4(
-            *img1.get_unchecked(pos) as f32,
-            *img1.get_unchecked(pos + 1) as f32,
-            *img1.get_unchecked(pos + 2) as f32,
-            *img1.get_unchecked(pos + 3) as f32,
-        )
-    };
+    // let rgba1 = unsafe {
+    //     f32x4(
+    //         *img1.get_unchecked(pos) as f32,
+    //         *img1.get_unchecked(pos + 1) as f32,
+    //         *img1.get_unchecked(pos + 2) as f32,
+    //         *img1.get_unchecked(pos + 3) as f32,
+    //     )
+    // };
 
     // go through 8 adjacent pixels
     for x in x0..=x2 {
@@ -274,14 +282,14 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
     let y2 = min(y1 + 1, height as usize - 1);
     let pos = (y1 * width as usize + x1) * 4;
 
-    let rgba1 = unsafe {
-        f32x4(
-            *img.get_unchecked(pos) as f32,
-            *img.get_unchecked(pos + 1) as f32,
-            *img.get_unchecked(pos + 2) as f32,
-            *img.get_unchecked(pos + 3) as f32,
-        )
-    };
+    // let rgba1 = unsafe {
+    //     f32x4(
+    //         *img.get_unchecked(pos) as f32,
+    //         *img.get_unchecked(pos + 1) as f32,
+    //         *img.get_unchecked(pos + 2) as f32,
+    //         *img.get_unchecked(pos + 3) as f32,
+    //     )
+    // };
 
     let mut zeroes = if x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 {
         1
@@ -296,17 +304,29 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
                 continue;
             }
 
-            let pos2 = (y * width as usize + x) * 4;
-            let rgba2 = unsafe {
-                f32x4(
-                    *img.get_unchecked(pos2) as f32,
-                    *img.get_unchecked(pos2 + 1) as f32,
-                    *img.get_unchecked(pos2 + 2) as f32,
-                    *img.get_unchecked(pos2 + 3) as f32,
-                )
-            };
+            // let pos2 = (y * width as usize + x) * 4;
+            // let rgba2 = unsafe {
+            //     f32x4(
+            //         *img.get_unchecked(pos2) as f32,
+            //         *img.get_unchecked(pos2 + 1) as f32,
+            //         *img.get_unchecked(pos2 + 2) as f32,
+            //         *img.get_unchecked(pos2 + 3) as f32,
+            //     )
+            // };
+            //
+            // if u32x4_all_true(f32x4_convert_u32x4(f32x4_eq(rgba1, rgba2))) {
+            //     zeroes += 1;
+            // }
 
-            if u32x4_all_true(f32x4_convert_u32x4(f32x4_eq(rgba1, rgba2))) {
+            let pos2 = (y * width as usize + x) * 4;
+
+            let eq = unsafe {
+                *img.get_unchecked(pos) == *img.get_unchecked(pos2)
+                    && *img.get_unchecked(pos + 1) == *img.get_unchecked(pos2 + 1)
+                    && *img.get_unchecked(pos + 2) == *img.get_unchecked(pos2 + 2)
+                    && *img.get_unchecked(pos + 3) == *img.get_unchecked(pos2 + 3)
+            };
+            if eq {
                 zeroes += 1;
             }
 
