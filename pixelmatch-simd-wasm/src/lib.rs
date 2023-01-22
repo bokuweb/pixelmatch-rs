@@ -10,7 +10,6 @@ struct PixelmatchOption {
     pub anti_aliased_color: Rgba,
 }
 
-#[derive(Copy, Clone)]
 pub struct Rgba(u8, u8, u8, u8);
 
 const IMAGE_LENGTH_ERROR: isize = -1;
@@ -96,17 +95,17 @@ pub fn pixelmatch(
                         || anti_aliased(img2, x as usize, y as usize, (width, height), img1))
                 {
                     // one of the pixels is anti-aliasing; draw as yellow and do not count as difference
-                    draw_pixel(out, pos, options.anti_aliased_color);
+                    draw_pixel(out, pos, &options.anti_aliased_color);
                 } else {
                     // found substantial difference not caused by anti-aliasing; draw it as red
-                    draw_pixel(out, pos, options.diff_color);
+                    draw_pixel(out, pos, &options.diff_color);
                     diff_count += 1;
                 }
             } else {
                 let c = gray_pixel(rgba1);
                 // pixels are similar; draw background as grayscale image blended with white
                 let y = (255.0 + ((c as i32 - 255) as f32) * 0.1) as u8;
-                draw_pixel(out, pos, Rgba(y, y, y, 255));
+                draw_pixel(out, pos, &Rgba(y, y, y, 255));
             }
         }
     }
@@ -306,7 +305,7 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
     false
 }
 
-fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: Rgba) {
+fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: &Rgba) {
     unsafe {
         *diff_buf.get_unchecked_mut(pos) = rgba.0;
         *diff_buf.get_unchecked_mut(pos + 1) = rgba.1;

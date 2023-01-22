@@ -1,5 +1,5 @@
 const Benchmark = require("benchmark");
-const pixelmatch = require("pixelmatch");
+const pixelmatch = require("./pixelmatch");
 const PNG = require("pngjs").PNG;
 const { readFileSync } = require("fs");
 
@@ -27,7 +27,6 @@ const data = [
   },
 ];
 
-
 let cachedUint8Memory0 = new Uint8Array();
 function getUint8Memory0() {
   if (cachedUint8Memory0.byteLength === 0) {
@@ -36,15 +35,16 @@ function getUint8Memory0() {
   return cachedUint8Memory0;
 }
 
-let WASM_VECTOR_LEN = 0;
+// let WASM_VECTOR_LEN = 0;
+//
+// function passArray8ToWasm0(arg, malloc) {
+//   const ptr = malloc(arg.length * 1);
+//   getUint8Memory0().set(arg, ptr / 1);
+//   WASM_VECTOR_LEN = arg.length;
+//   return ptr;
+// }
 
-function passArray8ToWasm0(arg, malloc) {
-  const ptr = malloc(arg.length * 1);
-  getUint8Memory0().set(arg, ptr / 1);
-  WASM_VECTOR_LEN = arg.length;
-  return ptr;
-}
-
+/*
 const inner = function (
   img1,
   img2,
@@ -138,10 +138,10 @@ const path = require("path").join(
   "../pixelmatch-simd-wasm/dist/node/pkg/pixelmatch_simd_wasm_bg.wasm"
 );
 const bytes = require("fs").readFileSync(path);
-
 const wasmModule = new WebAssembly.Module(bytes);
 const wasmInstance = new WebAssembly.Instance(wasmModule, {});
 wasm = wasmInstance.exports;
+*/
 
 (async () => {
   data.forEach(({ target, base, w, h }) => {
@@ -152,21 +152,28 @@ wasm = wasmInstance.exports;
       .add("js", {
         fn: () => {
           const out = new Uint8Array(img1.length);
-          pixelmatch(img1, img2, out, w, h, { includeAA: false });
+          pixelmatch(img1, img2, out, w, h, {
+            includeAA: false,
+            threshold: 0.1,
+          });
         },
       })
       .add("default", {
         fn: () =>
           without.pixelmatch(img1, img2, w, h, {
             includeAntiAlias: false,
+            threshold: 0.1,
           }),
       })
-      .add("without glue", {
-        fn: () => simd_without_glue(img1, img2, w, h, { includeAntiAlias: false }),
-      })
+      // .add("without glue", {
+      //   fn: () => simd_without_glue(img1, img2, w, h, { includeAntiAlias: true }),
+      // })
       .add("simd", {
         fn: () =>
-          simd.pixelmatch(img1, img2, w, h, { includeAntiAlias: false }),
+          simd.pixelmatch(img1, img2, w, h, {
+            includeAntiAlias: false,
+            threshold: 0.1,
+          }),
       })
       .on("complete", () => {
         console.log(
@@ -175,10 +182,10 @@ wasm = wasmInstance.exports;
           suite[0].stats.mean,
           "default",
           suite[1].stats.mean,
-          "without glue",
-          suite[2].stats.mean,
+          // "without glue",
+          // suite[2].stats.mean,
           "simd",
-          suite[3].stats.mean
+          suite[2].stats.mean
         );
       })
       .run();

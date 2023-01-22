@@ -4,12 +4,11 @@ use wasm_bindgen::prelude::*;
 
 struct PixelmatchOption {
     pub include_anti_alias: bool,
-    pub threshold: f32,
+    pub threshold: f64,
     pub diff_color: Rgba,
     pub anti_aliased_color: Rgba,
 }
 
-#[derive(Copy, Clone)]
 pub struct Rgba(u8, u8, u8, u8);
 
 const IMAGE_LENGTH_ERROR: isize = -1;
@@ -23,7 +22,7 @@ pub fn pixelmatch(
     width: u32,
     height: u32,
     include_anti_alias: bool,
-    threshold: f32,
+    threshold: f64,
     diff_color_r: u8,
     diff_color_g: u8,
     diff_color_b: u8,
@@ -63,30 +62,30 @@ pub fn pixelmatch(
             let pos = ((y * width + x) * 4) as usize;
             // squared YUV distance between colors at this pixel position
             let delta = color_delta(img1, img2, pos, pos, false);
-            if delta > max_delta {
+            if f64::abs(delta) > max_delta {
                 // check it's a real rendering difference or just anti-aliasing
                 if !options.include_anti_alias
                     && (anti_aliased(img1, x as usize, y as usize, (width, height), img2)
                         || anti_aliased(img2, x as usize, y as usize, (width, height), img1))
                 {
                     // one of the pixels is anti-aliasing; draw as yellow and do not count as difference
-                    draw_pixel(out, pos, options.anti_aliased_color);
+                    draw_pixel(out, pos, &options.anti_aliased_color);
                 } else {
                     // found substantial difference not caused by anti-aliasing; draw it as red
-                    draw_pixel(out, pos, options.diff_color);
+                    draw_pixel(out, pos, &options.diff_color);
                     diff_count += 1;
                 }
             } else {
                 // pixels are similar; draw background as grayscale image blended with white
                 let y = blend(gray_pixel(img1, pos), 0.1);
-                draw_pixel(out, pos, Rgba(y, y, y, 255));
+                draw_pixel(out, pos, &Rgba(y as u8, y as u8, y as u8, 255));
             }
         }
     }
     diff_count
 }
 
-fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: Rgba) {
+fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: &Rgba) {
     unsafe {
         *diff_buf.get_unchecked_mut(pos) = rgba.0;
         *diff_buf.get_unchecked_mut(pos + 1) = rgba.1;
@@ -97,7 +96,7 @@ fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: Rgba) {
 
 fn gray_pixel(img: &[u8], pos: usize) -> u8 {
     unsafe {
-        let a = *img.get_unchecked(pos + 3) as f32 / 255.0;
+        let a = *img.get_unchecked(pos + 3) as f64 / 255.0;
         let r = blend(*img.get_unchecked(pos), a);
         let g = blend(*img.get_unchecked(pos + 1), a);
         let b = blend(*img.get_unchecked(pos + 2), a);
@@ -107,20 +106,39 @@ fn gray_pixel(img: &[u8], pos: usize) -> u8 {
 
 // calculate color difference according to the paper "Measuring perceived color difference
 // using YIQ NTSC transmission color space in mobile applications" by Y. Kotsarenko and F. Ramos
-fn color_delta(img1: &[u8], img2: &[u8], pos1: usize, pos2: usize, only_brightness: bool) -> f32 {
+fn color_delta(img1: &[u8], img2: &[u8], pos1: usize, pos2: usize, only_brightness: bool) -> f64 {
     unsafe {
-        let a1 = *img1.get_unchecked(pos1 + 3) as f32 / 255.0;
-        let a2 = *img2.get_unchecked(pos2 + 3) as f32 / 255.0;
+        let r1 = *img1.get_unchecked(pos1);
+        let g1 = *img1.get_unchecked(pos1 + 1);
+        let b1 = *img1.get_unchecked(pos1 + 2);
+        let a1 = *img1.get_unchecked(pos1 + 3);
 
-        let r1 = blend(*img1.get_unchecked(pos1), a1);
-        let g1 = blend(*img1.get_unchecked(pos1 + 1), a1);
-        let b1 = blend(*img1.get_unchecked(pos1 + 2), a1);
+        let r2 = *img2.get_unchecked(pos2);
+        let g2 = *img2.get_unchecked(pos2 + 1);
+        let b2 = *img2.get_unchecked(pos2 + 2);
+        let a2 = *img2.get_unchecked(pos2 + 3);
 
-        let r2 = blend(*img2.get_unchecked(pos2), a2);
-        let g2 = blend(*img2.get_unchecked(pos2 + 1), a2);
-        let b2 = blend(*img2.get_unchecked(pos2 + 2), a2);
+        if a1 == a2 && r1 == r2 && g1 == g2 && b1 == b2 {
+            return 0.0;
+        }
 
-        let y = rgb2y(r1, g1, b1) - rgb2y(r2, g2, b2);
+        let (r1, g1, b1) = if a1 < 255 {
+            let a1 = a1 as f64 / 255.0;
+            (blend(r1, a1), blend(g1, a1), blend(b1, a1))
+        } else {
+            (r1 as f64, g1 as f64, b1 as f64)
+        };
+
+        let (r2, g2, b2) = if a2 < 255 {
+            let a2 = a2 as f64 / 255.0;
+            (blend(r2, a2), blend(g2, a2), blend(b2, a2))
+        } else {
+            (r2 as f64, g2 as f64, b2 as f64)
+        };
+
+        let y1 = rgb2y(r1, g1, b1);
+        let y2 = rgb2y(r2, g2, b2);
+        let y = y1 - y2;
 
         if only_brightness {
             return y;
@@ -129,23 +147,30 @@ fn color_delta(img1: &[u8], img2: &[u8], pos1: usize, pos2: usize, only_brightne
         let i = rgb2i(r1, g1, b1) - rgb2i(r2, g2, b2);
         let q = rgb2q(r1, g1, b1) - rgb2q(r2, g2, b2);
 
-        0.5053 * y * y + 0.299 * i * i + 0.1957 * q * q
+        let delta = 0.5053 * y * y + 0.299 * i * i + 0.1957 * q * q;
+        if y1 > y2 {
+            -delta
+        } else {
+            delta
+        }
     }
 }
 
 // blend semi-transparent color with white
-fn blend(c: u8, a: f32) -> u8 {
-    (255.0 + ((c as i32 - 255) as f32) * a) as u8
+fn blend(c: u8, a: f64) -> f64 {
+    255.0 + ((c as f64 - 255.0) as f64) * a
 }
 
-fn rgb2y(r: u8, g: u8, b: u8) -> f32 {
-    r as f32 * 0.298_895_3 + g as f32 * 0.586_622_4 + b as f32 * 0.114_482_23
+fn rgb2y(r: f64, g: f64, b: f64) -> f64 {
+    r * 0.29889531 + g * 0.58662247 + b * 0.11448223
 }
-fn rgb2i(r: u8, g: u8, b: u8) -> f32 {
-    r as f32 * 0.595_977_99 - g as f32 * 0.274_176_1 - b as f32 * 0.321_801_8
+
+fn rgb2i(r: f64, g: f64, b: f64) -> f64 {
+    r * 0.59597799 - g * 0.2741761 - b * 0.32180189
 }
-fn rgb2q(r: u8, g: u8, b: u8) -> f32 {
-    r as f32 * 0.211_470_17 - g as f32 * 0.522_617_1 + b as f32 * 0.311_146_9
+
+fn rgb2q(r: f64, g: f64, b: f64) -> f64 {
+    r * 0.21147017 - g * 0.52261711 + b * 0.31114694
 }
 
 /// check if a pixel is likely a part of anti-aliasing;
@@ -165,8 +190,8 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
         0
     };
 
-    let mut min = 0;
-    let mut max = 0;
+    let mut min = 0.0;
+    let mut max = 0.0;
     let mut min_x = 0;
     let mut min_y = 0;
     let mut max_x = 0;
@@ -188,22 +213,22 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
                 pos,
                 ((y * width as usize + x) * 4) as usize,
                 true,
-            ) as i32;
+            );
 
             // count the number of equal, darker and brighter adjacent pixels
-            if delta == 0 {
+            if delta == 0.0 {
                 zeroes += 1;
                 // if found more than 2 equal siblings, it's definitely not anti-aliasing
                 if zeroes > 2 {
                     return false;
                 }
                 // remember the darkest pixel
-            } else if delta < min {
+            } else if delta < min as f64 {
                 min = delta;
                 min_x = x;
                 min_y = y;
                 // remember the brightest pixel
-            } else if delta > max {
+            } else if delta > max as f64 {
                 max = delta;
                 max_x = x;
                 max_y = y;
@@ -212,7 +237,7 @@ fn anti_aliased(img1: &[u8], x1: usize, y1: usize, dimensions: (u32, u32), img2:
     }
 
     // if there are no both darker and brighter pixels among siblings, it's not anti-aliasing
-    if min == 0 || max == 0 {
+    if min == 0.0 || max == 0.0 {
         return false;
     }
 
