@@ -7,18 +7,18 @@ const simd = require("../pixelmatch-simd-wasm/node/cjs/index.cjs");
 const without = require("../pixelmatch-wasm/node/cjs/index.cjs");
 
 const data = [
-  {
-    base: "../fixtures/000a.png",
-    target: "../fixtures/000b.png",
-    w: 7488,
-    h: 5242,
-  },
-  {
-    base: "../fixtures/001a.png",
-    target: "../fixtures/001b.png",
-    w: 800,
-    h: 578,
-  },
+  //   {
+  //     base: "../fixtures/000a.png",
+  //     target: "../fixtures/000b.png",
+  //     w: 7488,
+  //     h: 5242,
+  //   },
+  //   {
+  //     base: "../fixtures/001a.png",
+  //     target: "../fixtures/001b.png",
+  //     w: 800,
+  //     h: 578,
+  //   },
   {
     base: "../fixtures/002a.png",
     target: "../fixtures/002b.png",
@@ -153,28 +153,30 @@ wasm = wasmInstance.exports;
         fn: () => {
           const out = new Uint8Array(img1.length);
           pixelmatch(img1, img2, out, w, h, {
-            includeAA: false,
+            includeAA: true,
             threshold: 0.1,
           });
         },
       })
       .add("default", {
         fn: () =>
-          console.log(without.pixelmatch(img1, img2, w, h, {
-            includeAntiAlias: false,
+          without.pixelmatch(img1, img2, w, h, {
+            includeAntiAlias: true,
             threshold: 0.1,
-          }).count),
+          }),
       })
       // .add("without glue", {
-      //   fn: () => simd_without_glue(img1, img2, w, h, { includeAntiAlias: false }),
+      //   fn: () => simd_without_glue(img1, img2, w, h, { includeAntiAlias: true }),
       // })
 
       .add("simd", {
         fn: () =>
-          console.log(simd.pixelmatch(img1, img2, w, h, {
-            includeAntiAlias: false,
-            threshold: 0.1,
-          }).count),
+          console.log(
+            simd.pixelmatch(img1, img2, w, h, {
+              includeAntiAlias: true,
+              threshold: 0.1,
+            }).count
+          ),
       })
       .on("complete", () => {
         console.log(

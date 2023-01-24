@@ -23,8 +23,8 @@ const V_DELTA: v128 = f32x4(0.5053, 0.299, 0.1957, 0.0);
 
 #[wasm_bindgen]
 pub fn pixelmatch(
-    img1: &[u8],
-    img2: &[u8],
+    img1: &[f32],
+    img2: &[f32],
     out: &mut [u8],
     width: u32,
     height: u32,
@@ -46,6 +46,9 @@ pub fn pixelmatch(
         return INVALID_FORMAT_ERROR;
     }
 
+    let img1: &[v128] = unsafe { core::mem::transmute(img1) };
+    let img2: &[v128] = unsafe { core::mem::transmute(img2) };
+
     let options = PixelmatchOption {
         include_anti_alias,
         threshold,
@@ -66,25 +69,10 @@ pub fn pixelmatch(
 
     for y in 0..height {
         for x in 0..width {
-            let pos = ((y * width + x) * 4) as usize;
+            let pos = (y * width + x) as usize;
 
-            let rgba1 = unsafe {
-                f32x4(
-                    *img1.get_unchecked(pos) as f32,
-                    *img1.get_unchecked(pos + 1) as f32,
-                    *img1.get_unchecked(pos + 2) as f32,
-                    *img1.get_unchecked(pos + 3) as f32,
-                )
-            };
-
-            let rgba2 = unsafe {
-                f32x4(
-                    *img2.get_unchecked(pos) as f32,
-                    *img2.get_unchecked(pos + 1) as f32,
-                    *img2.get_unchecked(pos + 2) as f32,
-                    *img2.get_unchecked(pos + 3) as f32,
-                )
-            };
+            let rgba1 = unsafe { *img1.get_unchecked(pos) as v128 };
+            let rgba2 = unsafe { *img2.get_unchecked(pos) as v128 };
 
             // squared YUV distance between colors at this pixel position
             let delta = color_delta(rgba1, rgba2, false);
@@ -181,6 +169,7 @@ fn rgb2q(rgba: v128) -> f32 {
 // check if a pixel is likely a part of anti-aliasing;
 // based on "Anti-aliased Pixel and Intensity Slope Detector" paper by V. Vysniauskas, 2009
 // http://eejournal.ktu.lt/index.php/elt/article/view/10058/5000
+/*
 fn anti_aliased(
     img1: &[u8],
     x1: usize,
@@ -337,7 +326,7 @@ fn has_many_siblings(img: &[u8], x1: usize, y1: usize, width: u32, height: u32) 
     }
     false
 }
-
+*/
 fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: &Rgba) {
     unsafe {
         *diff_buf.get_unchecked_mut(pos) = rgba.0;
@@ -346,6 +335,7 @@ fn draw_pixel(diff_buf: &mut [u8], pos: usize, rgba: &Rgba) {
         *diff_buf.get_unchecked_mut(pos + 3) = rgba.3;
     }
 }
+/*
 
 #[cfg(test)]
 mod test {
@@ -369,3 +359,4 @@ mod test {
         assert!(true);
     }
 }
+*/
