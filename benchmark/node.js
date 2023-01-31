@@ -25,6 +25,12 @@ const data = [
     w: 10000,
     h: 8000,
   },
+  {
+    base: "../fixtures/003a.png",
+    target: "../fixtures/003b.png",
+    w: 2048,
+    h: 1280,
+  },
 ];
 
 let cachedUint8Memory0 = new Uint8Array();
@@ -160,10 +166,10 @@ wasm = wasmInstance.exports;
       })
       .add("default", {
         fn: () =>
-          console.log(without.pixelmatch(img1, img2, w, h, {
+          without.pixelmatch(img1, img2, w, h, {
             includeAntiAlias: false,
             threshold: 0.1,
-          }).count),
+          }),
       })
       // .add("without glue", {
       //   fn: () => simd_without_glue(img1, img2, w, h, { includeAntiAlias: false }),
@@ -171,10 +177,10 @@ wasm = wasmInstance.exports;
 
       .add("simd", {
         fn: () =>
-          console.log(simd.pixelmatch(img1, img2, w, h, {
+          simd.pixelmatch(img1, img2, w, h, {
             includeAntiAlias: false,
             threshold: 0.1,
-          }).count),
+          }),
       })
       .on("complete", () => {
         console.log(

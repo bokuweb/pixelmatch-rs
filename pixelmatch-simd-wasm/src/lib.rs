@@ -104,7 +104,7 @@ pub fn pixelmatch(
             } else {
                 let c = gray_pixel(rgba1);
                 // pixels are similar; draw background as grayscale image blended with white
-                let y = (255.0 + (c - 255.0) * 0.1) as u8;
+                let y = blend_u8(c as u8, 0.1);
                 draw_pixel(out, pos, &Rgba(y, y, y, 255));
             }
         }
@@ -155,6 +155,10 @@ fn color_delta(rgba1: v128, rgba2: v128, only_brightness: bool) -> f32 {
     } else {
         delta
     }
+}
+
+fn blend_u8(c: u8, a: f32) -> u8 {
+    (255.0 + ((c as f32 - 255.0) as f32) * a) as u8
 }
 
 /// blend semi-transparent color with white
