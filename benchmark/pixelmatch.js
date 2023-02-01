@@ -1,6 +1,6 @@
 "use strict";
 
-module.exports = pixelmatch;
+// module.exports = pixelmatch;
 
 const defaultOptions = {
   threshold: 0.1, // matching threshold (0 to 1); smaller is more sensitive

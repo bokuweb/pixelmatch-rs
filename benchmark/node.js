@@ -31,15 +31,21 @@ const data = [
     w: 2048,
     h: 1280,
   },
+  {
+    base: "../fixtures/004a.png",
+    target: "../fixtures/004b.png",
+    w: 9112,
+    h: 12854,
+  },
 ];
 
-let cachedUint8Memory0 = new Uint8Array();
-function getUint8Memory0() {
-  if (cachedUint8Memory0.byteLength === 0) {
-    cachedUint8Memory0 = new Uint8Array(wasm.memory.buffer);
-  }
-  return cachedUint8Memory0;
-}
+// let cachedUint8Memory0 = new Uint8Array();
+// function getUint8Memory0() {
+//   if (cachedUint8Memory0.byteLength === 0) {
+//     cachedUint8Memory0 = new Uint8Array(wasm.memory.buffer);
+//   }
+//   return cachedUint8Memory0;
+// }
 
 // let WASM_VECTOR_LEN = 0;
 //
