@@ -31,11 +31,17 @@ const data = [
     w: 2048,
     h: 1280,
   },
+  // {
+  //   base: "../fixtures/004a.png",
+  //   target: "../fixtures/004b.png",
+  //   w: 9112,
+  //   h: 12854,
+  // },
   {
-    base: "../fixtures/004a.png",
-    target: "../fixtures/004b.png",
-    w: 9112,
-    h: 12854,
+    base: "../fixtures/005a.png",
+    target: "../fixtures/005b.png",
+    w: 400,
+    h: 571,
   },
 ];
 
