@@ -1,6 +1,12 @@
 "use strict";
 
-// module.exports = pixelmatch;
+if (!window) {
+  global.window = {};
+}
+
+window.module = window.module || {};
+
+module.exports = pixelmatch;
 
 const defaultOptions = {
   threshold: 0.1, // matching threshold (0 to 1); smaller is more sensitive
@@ -95,7 +101,10 @@ function antialiased(img, x1, y1, width, height, img2) {
   let zeroes = x1 === x0 || x1 === x2 || y1 === y0 || y1 === y2 ? 1 : 0;
   let min = 0;
   let max = 0;
-  let minX = 0, minY = 0, maxX = 0, maxY = 0;
+  let minX = 0,
+    minY = 0,
+    maxX = 0,
+    maxY = 0;
 
   // go through 8 adjacent pixels
   for (let x = x0; x <= x2; x++) {
@@ -242,3 +251,5 @@ function drawGrayPixel(img, i, alpha, output) {
   const val = blend(rgb2y(r, g, b), (alpha * img[i + 3]) / 255);
   drawPixel(output, i, val, val, val);
 }
+
+window.pixelmatch = pixelmatch;
