@@ -1,6 +1,6 @@
 {
   "name": "@bokuweb/pixelmatch-wasm",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "type": "module",
   "main": "./node/cjs/index.cjs",
   "exports": {
