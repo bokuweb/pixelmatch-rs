@@ -16,14 +16,6 @@ let without;
   const wasmInstance1 = await (await WebAssembly.instantiate(buf1)).instance;
   without = wasmInstance1.exports;
 
-  let cachedUint8Memory0 = new Uint8Array();
-  function getUint8Memory0() {
-    if (cachedUint8Memory0.byteLength === 0) {
-      cachedUint8Memory0 = new Uint8Array(simd.memory.buffer);
-    }
-    return cachedUint8Memory0;
-  }
-
   function getImageDate(selector) {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
@@ -38,16 +30,7 @@ let without;
     ];
   }
 
-  let WASM_VECTOR_LEN = 0;
-
-  function passArray8ToWasm0(arg, malloc) {
-    const ptr = malloc(arg.length * 1);
-    getUint8Memory0().set(arg, ptr / 1);
-    WASM_VECTOR_LEN = arg.length;
-    return ptr;
-  }
-
-  const inner = function (
+  const simdInner = function (
     img1,
     img2,
     out,
@@ -62,17 +45,33 @@ let without;
     anti_aliased_color_r,
     anti_aliased_color_g,
     anti_aliased_color_b,
-    anti_aliased_color_a,
-    wasm
+    anti_aliased_color_a
   ) {
+    let WASM_VECTOR_LEN = 0;
+    let cachedUint8Memory0 = new Uint8Array();
+
+    function getUint8Memory0() {
+      if (cachedUint8Memory0.byteLength === 0) {
+        cachedUint8Memory0 = new Uint8Array(simd.memory.buffer);
+      }
+      return cachedUint8Memory0;
+    }
+
+    function passArray8ToWasm0(arg, malloc) {
+      const ptr = malloc(arg.length * 1);
+      getUint8Memory0().set(arg, ptr / 1);
+      WASM_VECTOR_LEN = arg.length;
+      return ptr;
+    }
+
     try {
-      const ptr0 = passArray8ToWasm0(img1, wasm.__wbindgen_malloc);
+      const ptr0 = passArray8ToWasm0(img1, simd.__wbindgen_malloc);
       const len0 = WASM_VECTOR_LEN;
-      const ptr1 = passArray8ToWasm0(img2, wasm.__wbindgen_malloc);
+      const ptr1 = passArray8ToWasm0(img2, simd.__wbindgen_malloc);
       const len1 = WASM_VECTOR_LEN;
-      var ptr2 = passArray8ToWasm0(out, wasm.__wbindgen_malloc);
+      var ptr2 = passArray8ToWasm0(out, simd.__wbindgen_malloc);
       var len2 = WASM_VECTOR_LEN;
-      const ret = wasm.pixelmatch(
+      const ret = simd.pixelmatch(
         ptr0,
         len0,
         ptr1,
@@ -97,7 +96,77 @@ let without;
       console.error(e);
     } finally {
       out.set(getUint8Memory0().subarray(ptr2 / 1, ptr2 / 1 + len2));
-      wasm.__wbindgen_free(ptr2, len2 * 1);
+      simd.__wbindgen_free(ptr2, len2 * 1);
+    }
+  };
+
+  const withoutInner = function (
+    img1,
+    img2,
+    out,
+    width,
+    height,
+    include_anti_alias,
+    threshold,
+    diff_color_r,
+    diff_color_g,
+    diff_color_b,
+    diff_color_a,
+    anti_aliased_color_r,
+    anti_aliased_color_g,
+    anti_aliased_color_b,
+    anti_aliased_color_a
+  ) {
+    let WASM_VECTOR_LEN = 0;
+    let cachedUint8Memory0 = new Uint8Array();
+
+    function getUint8Memory0() {
+      if (cachedUint8Memory0.byteLength === 0) {
+        cachedUint8Memory0 = new Uint8Array(without.memory.buffer);
+      }
+      return cachedUint8Memory0;
+    }
+
+    function passArray8ToWasm0(arg, malloc) {
+      const ptr = malloc(arg.length * 1);
+      getUint8Memory0().set(arg, ptr / 1);
+      WASM_VECTOR_LEN = arg.length;
+      return ptr;
+    }
+
+    try {
+      const ptr0 = passArray8ToWasm0(img1, without.__wbindgen_malloc);
+      const len0 = WASM_VECTOR_LEN;
+      const ptr1 = passArray8ToWasm0(img2, without.__wbindgen_malloc);
+      const len1 = WASM_VECTOR_LEN;
+      var ptr2 = passArray8ToWasm0(out, without.__wbindgen_malloc);
+      var len2 = WASM_VECTOR_LEN;
+      const ret = without.pixelmatch(
+        ptr0,
+        len0,
+        ptr1,
+        len1,
+        ptr2,
+        len2,
+        width,
+        height,
+        include_anti_alias,
+        threshold,
+        diff_color_r,
+        diff_color_g,
+        diff_color_b,
+        diff_color_a,
+        anti_aliased_color_r,
+        anti_aliased_color_g,
+        anti_aliased_color_b,
+        anti_aliased_color_a
+      );
+      return ret;
+    } catch (e) {
+      console.error(e);
+    } finally {
+      out.set(getUint8Memory0().subarray(ptr2 / 1, ptr2 / 1 + len2));
+      without.__wbindgen_free(ptr2, len2 * 1);
     }
   };
 
@@ -116,7 +185,7 @@ let without;
     const diffColor = opts.diffColor ?? defaultOptions.diffColor;
     const antiAliasedColor =
       opts.antiAliasedColor ?? defaultOptions.antiAliasedColor;
-    const countOrError = inner(
+    const countOrError = simdInner(
       img1,
       img2,
       out,
@@ -143,7 +212,7 @@ let without;
     const diffColor = opts.diffColor ?? defaultOptions.diffColor;
     const antiAliasedColor =
       opts.antiAliasedColor ?? defaultOptions.antiAliasedColor;
-    const countOrError = inner(
+    const countOrError = withoutInner(
       img1,
       img2,
       out,
@@ -171,22 +240,18 @@ let without;
     suite
       .add("simd", {
         fn: () => {
-          console.log(
-            simdMatch(img1, img2, w, h, {
-              includeAntiAlias: false,
-              threshold: 0.1,
-            }).count
-          );
+          simdMatch(img1, img2, w, h, {
+            includeAntiAlias: false,
+            threshold: 0.1,
+          });
         },
       })
       .add("without", {
         fn: () => {
-          console.log(
-            withoutMatch(img1, img2, w, h, {
-              includeAntiAlias: false,
-              threshold: 0.1,
-            }).count
-          );
+          withoutMatch(img1, img2, w, h, {
+            includeAntiAlias: false,
+            threshold: 0.1,
+          });
         },
       })
       .add("js", {
@@ -208,6 +273,12 @@ let without;
           "js",
           suite[2].stats.mean
         );
+        const result = document.querySelector(`div.result${i}`);
+        result.textContent = `Fastest is ${suite.filter("fastest").map("name")}
+        simd = ${suite[0].stats.mean}
+        without = ${suite[1].stats.mean}
+        js = ${suite[2].stats.mean}
+        `;
       })
       .run();
   }
