@@ -30,7 +30,7 @@ pixelmatch(img1, img2, 800, 600, { threshold: 0.1 });
 
 | before.png        | after.png          | diff.png                 |
 | --------------- |---------------| -------------------- |
-| ![](../fixtures//000a.png) | ![](../fixtures/000b.png) |![](../assets/diff0.png)|
+| ![](../assets/000a.png) | ![](../assets/00b.png) |![](../assets/diff0.png)|
 
 
 ## API
