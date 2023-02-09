@@ -25,6 +25,14 @@ pixelmatch(img1, img2, 800, 600, { threshold: 0.1 });
 - [node(cjs)](https://github.com/pixelmatch-rs/examples/node/cjs)
 - [node(esm)](https://github.com/pixelmatch-rs/examples/node/esm)
 
+## Demo
+
+
+| before.png        | after.png          | diff.png                 |
+| --------------- |---------------| -------------------- |
+| ![](../fixtures//000a.png) | ![](../fixtures/000b.png) |![](../assets/diff0.png)|
+
+
 ## API
 
 ### pixelmatch(img1: Uint8Array, img2: Uint8Array, width: number, height: number, options?: PixelmatchOptions): { count: number; diff: Uint8Array };

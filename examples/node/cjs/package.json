@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "@bokuweb/pixelmatch-wasm": "^0.0.1"
+    "@bokuweb/pixelmatch-wasm": "^0.0.1",
+    "pngjs": "^6.0.0"
   }
 }
