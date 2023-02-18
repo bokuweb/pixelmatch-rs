@@ -43,6 +43,12 @@ const data = [
     w: 400,
     h: 571,
   },
+  {
+    base: "../fixtures/007a.png",
+    target: "../fixtures/007b.png",
+    w: 800,
+    h: 578,
+  },
 ];
 
 // let cachedUint8Memory0 = new Uint8Array();
