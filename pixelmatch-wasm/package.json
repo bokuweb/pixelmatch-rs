@@ -1,0 +1,24 @@
+{
+  "name": "@bokuweb/pixelmatch-wasm",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./node/cjs/index.cjs",
+  "exports": {
+    "browser": "./web/index.js",
+    "require": "./node/cjs/index.cjs",
+    "import": "./node/esm/index.mjs"
+  },
+  "types": "./index.d.ts",
+  "scripts": {
+    "build": "webpack",
+    "serve": "webpack serve",
+    "wasm-pack:dev": "wasm-pack build --out-dir js/pkg",
+    "wasm-pack:web": "wasm-pack build --release --out-dir dist/web/pkg && wasm-opt -O3 -o dist/web/pkg/pixelmatch_wasm_bg.wasm dist/web/pkg/pixelmatch_wasm_bg.wasm",
+    "wasm-pack:node": "wasm-pack build --release --out-dir dist/node/pkg --target nodejs && wasm-opt -O3 -o dist/node/pkg/pixelmatch_wasm_bg.wasm dist/node/pkg/pixelmatch_wasm_bg.wasm",
+    "wasm-pack": "run-s wasm-pack:*",
+    "test:wasm": "wasm-pack test --node"
+  },
+  "devDependencies": {
+    "npm-run-all": "4.1.5"
+  }
+}

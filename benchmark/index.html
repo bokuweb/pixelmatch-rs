@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Pixelmatch wasm</title>
+    <style>
+      img {
+        margin: 20px;
+        visibility: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div>benchmark-</div>
+    <div class="result0"></div>
+    <div class="result1"></div>
+    <div class="result2">loading...</div>
+    <img class="before0" src="../fixtures/000a.png" />
+    <img class="after0" src="../fixtures/000b.png" />
+    <img class="before1" src="../fixtures/001a.png" />
+    <img class="after1" src="../fixtures/001b.png" />
+    <img class="before2" src="../fixtures/002a.png" />
+    <img class="after2" src="../fixtures/002b.png" />
+    <script src="/benchmark/pixelmatch.js"></script>
+    <script src="/benchmark/lodash.min.js"></script>
+    <script src="/benchmark/platform.js"></script>
+    <script src="/benchmark/benchmark.js"></script>
+    <script src="/benchmark/web.js"></script>
+  </body>
+</html>
