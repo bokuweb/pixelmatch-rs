@@ -10,8 +10,8 @@ fn main() {
     println!("{}, {}", img1.raw_pixels().len(), img2.raw_pixels().len());
 
     let result = pixelmatch(
-        &img1.raw_pixels(),
-        &img2.raw_pixels(),
+        &img1.to_rgba(),
+        &img2.to_rgba(),
         img1.dimensions(),
         Some(PixelmatchOption {
             threshold: 0.1,
